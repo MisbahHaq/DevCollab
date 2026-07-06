@@ -28,7 +28,7 @@ bool twoSum(vector<int> &arr, int target)
 int main()
 {
     vector<int> arr = {0, -1, 2, -3, 1};
-    int target = 20;
+    int target = 2;
     cout << ((twoSum(arr, target)) ? "true" : "false");
     return 0;
 }
