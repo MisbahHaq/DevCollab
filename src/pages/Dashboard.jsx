@@ -22,7 +22,7 @@ import {
   fetchSavedProjectIds,
   fetchAllMaintainedProjects,
 } from "../firebase/db";
-import { fetchProjectPool } from "../firebase/githubService";
+import { fetchProjectPool, fetchUserEvents } from "../firebase/githubService";
 import { mockProjects } from "../data/mockProjects";
 
 const ACCENT = {
@@ -33,12 +33,97 @@ const ACCENT = {
   sky: "#bae6fd",
 };
 
-const SAMPLE_FEED = [
-  { id: "s1", kind: "match", title: "New 92% match — vercel/next.js", meta: "Top 5% for your stack · React · TS", when: "2h ago", accent: ACCENT.yellow },
-  { id: "s2", kind: "bounty", title: "$300 bounty — Fix flaky E2E in checkout", meta: "open-commerce · medium", when: "5h ago", accent: ACCENT.mint },
-  { id: "s3", kind: "team", title: "Team “BugSquashers” forming", meta: "shadcn-ui · 3 members · 2 issues claimed", when: "1d ago", accent: ACCENT.lavender },
-  { id: "s4", kind: "match", title: "New 78% match — webtorrent/webtorrent", meta: "Streaming · JS · good first issues 🌱", when: "1d ago", accent: ACCENT.sky },
-];
+const GH_EMOJI = {
+  PushEvent: "💻",
+  PullRequestEvent: "✨",
+  IssuesEvent: "🐛",
+  IssueCommentEvent: "💬",
+  ReleaseEvent: "🚀",
+  ForkEvent: "🍴",
+  WatchEvent: "⭐",
+  CreateEvent: "🧰",
+  PullRequestReviewEvent: "🔍",
+  PullRequestReviewCommentEvent: "🔍",
+};
+
+const GH_ACCENT = {
+  PushEvent: ACCENT.sky,
+  PullRequestEvent: ACCENT.mint,
+  IssuesEvent: ACCENT.coral,
+  IssueCommentEvent: ACCENT.lavender,
+  ReleaseEvent: ACCENT.yellow,
+  ForkEvent: ACCENT.lavender,
+  WatchEvent: ACCENT.yellow,
+  CreateEvent: ACCENT.sky,
+  PullRequestReviewEvent: ACCENT.mint,
+  PullRequestReviewCommentEvent: ACCENT.mint,
+};
+
+function githubFeedItems(events = []) {
+  const items = [];
+  events.forEach((e) => {
+    const repo = e.repo || "";
+    const payload = e.payload || {};
+    let title = "";
+    let meta = repo;
+    switch (e.type) {
+      case "PushEvent": {
+        const n = payload.commits?.length || payload.size || 1;
+        title = `Pushed ${n} ${n === 1 ? "commit" : "commits"} to ${repo}`;
+        meta = (payload.ref || "").replace("refs/heads/", "") || repo;
+        break;
+      }
+      case "PullRequestEvent": {
+        const pr = payload.pull_request;
+        const action = (payload.action || "opened").replace("_", " ");
+        title = `PR ${action}: ${pr?.title || `#${pr?.number || "?"}`} in ${repo}`;
+        meta = `${pr?.state || "open"} · ${repo}`;
+        break;
+      }
+      case "IssuesEvent": {
+        const iss = payload.issue;
+        const action = (payload.action || "opened").replace("_", " ");
+        title = `Issue ${action}: ${iss?.title || `#${iss?.number || "?"}`} in ${repo}`;
+        break;
+      }
+      case "IssueCommentEvent": {
+        const iss = payload.issue;
+        title = `Commented on ${iss?.title ? `"${iss.title}"` : "an issue"} in ${repo}`;
+        break;
+      }
+      case "ReleaseEvent":
+        title = `Released ${payload.release?.tag_name || "a version"} in ${repo}`;
+        break;
+      case "ForkEvent":
+        title = `Forked ${repo}`;
+        break;
+      case "WatchEvent":
+        title = `Starred ${repo}`;
+        break;
+      case "CreateEvent":
+        title = `Created a ${payload.ref_type || "ref"} in ${repo}`;
+        meta = payload.ref || repo;
+        break;
+      case "PullRequestReviewEvent":
+      case "PullRequestReviewCommentEvent":
+        title = `Reviewed a PR in ${repo}`;
+        break;
+      default:
+        return;
+    }
+    items.push({
+      id: `gh_${e.id}`,
+      ts: Date.parse(e.created_at) || 0,
+      kind: "github",
+      emoji: GH_EMOJI[e.type] || "⚡",
+      accent: GH_ACCENT[e.type] || ACCENT.sky,
+      title,
+      meta,
+      when: timeAgo(e.created_at),
+    });
+  });
+  return items;
+}
 
 function ChartTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -56,19 +141,22 @@ function ChartTip({ active, payload, label }) {
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
-  const [feed, setFeed] = useState(SAMPLE_FEED);
+  const [feed, setFeed] = useState([]);
   const [live, setLive] = useState(false);
   const [saved, setSaved] = useState({});
   const [pool, setPool] = useState([]);
+
+  const githubUsername = profile?.githubUsername;
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [matches, bounties, teams] = await Promise.all([
+        const [matches, bounties, teams, events] = await Promise.all([
           fetchRecentMatches(user.uid, 6).catch(() => []),
           fetchRecentBounties(6).catch(() => []),
           fetchRecentTeams(6).catch(() => []),
+          githubUsername ? fetchUserEvents(githubUsername, 30).catch(() => []) : [],
         ]);
         if (!alive) return;
         const projectPool = await fetchProjectPool().catch(() => []);
@@ -77,13 +165,14 @@ export default function Dashboard() {
         const all = [...projectPool, ...posted.map((p) => ({ ...p, maintainerPosted: true }))];
         const byId = new Map(all.map((p) => [p.id, p]));
 
-        const items = [];
+        const items = githubFeedItems(events);
         matches.forEach((m) => {
           const p = byId.get(m.projectId);
           items.push({
             id: `m_${m.id}`,
             ts: Date.parse(m.computedAt) || 0,
             kind: "match",
+            emoji: "🧲",
             title: `New ${m.score}% match — ${p ? `${p.owner}/${p.name}` : m.projectId}`,
             meta: p ? `${p.languages?.join(" · ") || "Open source"} · good first issues 🌱` : "Open source",
             when: timeAgo(m.computedAt),
@@ -95,6 +184,7 @@ export default function Dashboard() {
             id: `b_${b.id}`,
             ts: Date.parse(b.createdAt) || 0,
             kind: "bounty",
+            emoji: "💰",
             title: `${b.currency} ${Number(b.amount || 0).toLocaleString()} bounty — ${b.title}`,
             meta: `${b.projectName || "open source"} · ${b.difficulty}`,
             when: timeAgo(b.createdAt),
@@ -106,6 +196,7 @@ export default function Dashboard() {
             id: `t_${t.id}`,
             ts: Date.parse(t.createdAt) || 0,
             kind: "team",
+            emoji: "👥",
             title: `Team “${t.name}” forming`,
             meta: `${t.projectName || "cross-project"} · ${Object.keys(t.members || {}).length} members`,
             when: timeAgo(t.createdAt),
@@ -115,7 +206,7 @@ export default function Dashboard() {
 
         items.sort((a, b) => b.ts - a.ts);
         if (items.length) {
-          setFeed(items);
+          setFeed(items.slice(0, 12));
           setLive(true);
         }
         setPool(all);
@@ -131,7 +222,7 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [user, githubUsername]);
 
   const stats = useMemo(() => {
     const s = profile?.stats || {};
@@ -205,7 +296,7 @@ export default function Dashboard() {
           </p>
         </div>
         <span className={`badge-brutal px-3 py-1 text-[11px] ${live ? "bg-mint text-ink" : "bg-canary-soft text-ink"}`}>
-          {live ? "● Live activity" : "● Demo feed"}
+          {live ? "● Live activity" : "● No activity yet"}
         </span>
       </div>
 
@@ -235,28 +326,35 @@ export default function Dashboard() {
         <section className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">Activity feed</h2>
-            {!live && <span className="font-mono text-[11px] text-ink/50">no live data yet</span>}
+            {!live && <span className="font-mono text-[11px] text-ink/50">no activity to show</span>}
           </div>
-          <ul className="space-y-3">
-            {feed.map((f, i) => (
-              <motion.li
-                key={f.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                className="brutal flex items-center gap-4 bg-white p-4"
-              >
-                <span className={`grid h-10 w-10 shrink-0 place-items-center border-2 border-ink text-lg font-bold ${f.accent}`}>
-                  {f.kind === "match" ? "🧲" : f.kind === "bounty" ? "💰" : "👥"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-extrabold uppercase tracking-tight text-ink">{f.title}</p>
-                  <p className="truncate font-mono text-xs text-ink/60">{f.meta}</p>
-                </div>
-                <span className="font-mono text-[11px] font-bold text-ink/50">{f.when}</span>
-              </motion.li>
-            ))}
-          </ul>
+          {feed.length === 0 ? (
+            <Placeholder
+              title="No activity yet"
+              hint="Sign in with GitHub and push a PR — your commits, issues and reviews show up here, live."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {feed.map((f, i) => (
+                <motion.li
+                  key={f.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="brutal flex items-center gap-4 bg-white p-4"
+                >
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center border-2 border-ink text-lg font-bold ${f.accent}`}>
+                    {f.emoji}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-extrabold uppercase tracking-tight text-ink">{f.title}</p>
+                    <p className="truncate font-mono text-xs text-ink/60">{f.meta}</p>
+                  </div>
+                  <span className="font-mono text-[11px] font-bold text-ink/50">{f.when}</span>
+                </motion.li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section>
