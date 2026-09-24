@@ -8,6 +8,7 @@ const TOKEN_KEY = "devcollab_github_token";
 
 export function setGitHubToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
+  GH_CACHE.clear(); // a token changes auth headers, so stale (403-cached) data is irrelevant
 }
 
 export function getGitHubToken() {
@@ -29,9 +30,42 @@ async function gh(path) {
     const msg = res.status === 403
       ? "GitHub API rate limit hit. Add a personal access token in Settings to refresh."
       : `GitHub API error ${res.status}`;
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
+}
+
+// In-memory response cache (promise-level, so in-flight requests are deduped).
+// Repeated identical GETs — e.g. ProjectDetail firing repo + issues + guide
+// for the same slug under StrictMode remounts — resolve without a second
+// network round-trip, which keeps the unauth rate limit from evaporating.
+const GH_CACHE = new Map(); // path -> { promise, at, ok }
+const MAX_CACHE_ENTRIES = 200;
+const ERROR_TTL_MS = 15 * 1000;
+
+function ghCached(path, ttlMs = 10 * 60 * 1000) {
+  const hit = GH_CACHE.get(path);
+  if (hit) {
+    const ttl = hit.ok ? ttlMs : ERROR_TTL_MS;
+    if (Date.now() - hit.at < ttl) return hit.promise;
+    GH_CACHE.delete(path);
+  }
+
+  // Never delete on failure: negative results (404 missing CONTRIBUTING.md,
+  // 403 rate limit) are cached briefly so we don't hammer the API in a loop.
+  const promise = gh(path);
+  GH_CACHE.set(path, { promise, at: Date.now(), ok: true });
+  promise.catch(() => {
+    GH_CACHE.get(path)?.at && (GH_CACHE.get(path).ok = false);
+  });
+
+  if (GH_CACHE.size > MAX_CACHE_ENTRIES) {
+    const oldest = GH_CACHE.entries().next().value;
+    if (oldest) GH_CACHE.delete(oldest[0]);
+  }
+  return promise;
 }
 
 export async function fetchUserProfile(username) {
@@ -95,8 +129,9 @@ export async function fetchContributionStreak(username) {
 
 export async function fetchIssueList(repo, label = "good first issue") {
   const [owner, name] = repo.split("/");
-  const issues = await gh(
-    `/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=30`
+  const issues = await ghCached(
+    `/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=30`,
+    5 * 60 * 1000
   );
   return issues
     .filter((i) => !i.pull_request)
@@ -110,7 +145,7 @@ export async function fetchIssueList(repo, label = "good first issue") {
 }
 
 export async function fetchUserEvents(username, perPage = 100) {
-  const events = await gh(`/users/${username}/events/public?per_page=${perPage}`);
+  const events = await ghCached(`/users/${username}/events/public?per_page=${perPage}`, 2 * 60 * 1000);
   return events.map((e) => ({
     id: e.id,
     type: e.type,
@@ -122,8 +157,8 @@ export async function fetchUserEvents(username, perPage = 100) {
 
 export async function fetchRepoOverview(owner, name) {
   const [repoRes, contRes] = await Promise.all([
-    gh(`/repos/${owner}/${name}`),
-    gh(`/repos/${owner}/${name}/contents/CONTRIBUTING.md`).catch(() => null),
+    ghCached(`/repos/${owner}/${name}`, 10 * 60 * 1000),
+    ghCached(`/repos/${owner}/${name}/contents/CONTRIBUTING.md`, 10 * 60 * 1000).catch(() => null),
   ]);
   return {
     ...toProjectModel(repoRes),
@@ -131,21 +166,7 @@ export async function fetchRepoOverview(owner, name) {
   };
 }
 
-export async function fetchContributionsFor(owner, name) {
-  const data = await gh(
-    `/repos/${owner}/${name}/contributors?per_page=10`
-  );
-  return data.map((c) => ({
-    login: c.login,
-    avatar: c.avatar_url,
-    contributions: c.contributions,
-  }));
-}
-
-// Real project search via the GitHub Search API. Query is built so every
-// result already has open "good first issue"-style issues ready for new
-// contributors. Unauth rate limit is ~10 req/min — responses are cached in
-// sessionStorage by the Discovery page.
+// Frameworks/topics parsed from a repo's GitHub topics into display names.
 const FRAMEWORK_TOPICS = new Set([
   "react", "reactjs", "vue", "vuejs", "angular", "svelte", "nextjs", "next",
   "tailwindcss", "tailwind", "nodejs", "node", "express", "django", "rails",
@@ -169,26 +190,6 @@ const LANGUAGE_TOPICS = {
   scala: "Scala",
 };
 
-export async function searchProjects({ language, size, perPage = 40 } = {}) {
-  const parts = [
-    "topic:good-first-issue",
-    "fork:false",
-    "archived:false",
-    "pushed:>2026-06-01",
-  ];
-  if (language) parts.push(`language:${language}`);
-
-  if (size === "small") parts.push("stars:<200");
-  else if (size === "medium") parts.push("stars:200..2000");
-  else if (size === "large") parts.push("stars:>2000");
-
-  const data = await gh(
-    `/search/repositories?q=${encodeURIComponent(parts.join(" "))}&sort=stars&order=desc&per_page=${perPage}`
-  );
-
-  return data.items.map(toProjectModel);
-}
-
 // Live free-text project search against the GitHub Search API. Powers the
 // navbar + discovery search boxes. Tokens are quoted so user input can't
 // inject search qualifiers. Falls back to good-first-issue repos when no
@@ -206,8 +207,9 @@ export async function searchGitHubProjects(query, { perPage = 30, language, size
   else if (size === "medium") parts.push("stars:200..2000");
   else if (size === "large") parts.push("stars:>2000");
 
-  const data = await gh(
-    `/search/repositories?q=${encodeURIComponent(parts.join(" "))}&sort=stars&order=desc&per_page=${perPage}`
+  const data = await ghCached(
+    `/search/repositories?q=${encodeURIComponent(parts.join(" "))}&sort=stars&order=desc&per_page=${perPage}`,
+    60 * 1000
   );
   return data.items.map(toProjectModel);
 }
@@ -215,7 +217,7 @@ export async function searchGitHubProjects(query, { perPage = 30, language, size
 // Fetches a single repo by owner/name and maps it to the project model. Used
 // by ProjectDetail so live search results and arbitrary slugs always resolve.
 export async function fetchRepository(owner, name) {
-  const repo = await gh(`/repos/${owner}/${name}`);
+  const repo = await ghCached(`/repos/${owner}/${name}`, 10 * 60 * 1000);
   return toProjectModel(repo);
 }
 
@@ -238,7 +240,7 @@ export function fetchProjectPool({ perPage = 100 } = {}) {
     const url = (page) =>
       `/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=${perPage}&page=${page}`;
 
-    const firstPage = await gh(url(1)).then((d) => d.items.map(toProjectModel));
+    const firstPage = await ghCached(url(1), 10 * 60 * 1000).then((d) => d.items.map(toProjectModel));
     storePool(firstPage);
     enrichPoolCache(url(2));
     return firstPage;
@@ -252,7 +254,7 @@ export function fetchProjectPool({ perPage = 100 } = {}) {
 
 async function enrichPoolCache(url) {
   try {
-    const page2 = await gh(url);
+    const page2 = await ghCached(url, 10 * 60 * 1000);
     const models = page2.items.map(toProjectModel);
     let existing = [];
     try {

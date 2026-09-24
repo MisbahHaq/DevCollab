@@ -31,6 +31,13 @@ export const COLLECTIONS = {
 
 const userRef = (uid) => doc(db, COLLECTIONS.USERS, uid);
 
+// Firestore rejects queries that need a composite index until it's deployed.
+// In a fresh project those reads fail hard — fall back to a simple query and
+// sort in memory so the app still works before `firebase deploy` runs.
+function isMissingIndex(err) {
+  return err?.code === "failed-precondition" && /index/i.test(String(err.message));
+}
+
 export async function getUserDoc(uid) {
   return (await getDoc(userRef(uid))).data();
 }
@@ -43,28 +50,6 @@ export async function updateUserProfile(uid, data) {
   await updateDoc(userRef(uid), data);
 }
 
-export async function deleteUserProfile(uid) {
-  await deleteDoc(userRef(uid));
-}
-
-export async function saveProjectForUser(uid, projectId) {
-  await setDoc(doc(db, COLLECTIONS.SAVED_PROJECTS, `${uid}_${projectId}`), {
-    uid,
-    projectId,
-    savedAt: new Date().toISOString(),
-  });
-}
-
-export async function upsertMatch(uid, projectId, score, breakdown) {
-  await setDoc(doc(db, COLLECTIONS.MATCHES, `${uid}_${projectId}`), {
-    uid,
-    projectId,
-    score,
-    breakdown,
-    computedAt: new Date().toISOString(),
-  });
-}
-
 export async function logContribution(uid, contribution) {
   await setDoc(doc(collection(db, COLLECTIONS.CONTRIBUTIONS)), {
     ...contribution,
@@ -73,33 +58,27 @@ export async function logContribution(uid, contribution) {
   });
 }
 
-export async function fetchProjects(filters = {}) {
-  const constraints = [];
-
-  if (filters.language) {
-    constraints.push(where("languages", "array-contains", filters.language));
-  }
-  if (filters.difficulty) {
-    constraints.push(where("difficulty", "==", filters.difficulty));
-  }
-
-  constraints.push(orderBy("stars", "desc"));
-  constraints.push(limit(filters.limit ?? 50));
-
-  const snap = await getDocs(query(collection(db, COLLECTIONS.PROJECTS), ...constraints));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
 export async function fetchRecentContributions(uid, count = 10) {
-  const snap = await getDocs(
-    query(
-      collection(db, COLLECTIONS.CONTRIBUTIONS),
-      where("uid", "==", uid),
-      orderBy("loggedAt", "desc"),
-      limit(count)
-    )
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, COLLECTIONS.CONTRIBUTIONS),
+        where("uid", "==", uid),
+        orderBy("loggedAt", "desc"),
+        limit(count)
+      )
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    if (!isMissingIndex(err)) throw err;
+    const snap = await getDocs(
+      query(collection(db, COLLECTIONS.CONTRIBUTIONS), where("uid", "==", uid), limit(500))
+    );
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(b.loggedAt || "").localeCompare(String(a.loggedAt || "")))
+      .slice(0, count);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -430,15 +409,26 @@ export async function fetchThreadMessages(threadId) {
 // ---------------------------------------------------------------------------
 
 export async function fetchRecentMatches(uid, count = 8) {
-  const snap = await getDocs(
-    query(
-      collection(db, COLLECTIONS.MATCHES),
-      where("uid", "==", uid),
-      orderBy("computedAt", "desc"),
-      limit(count)
-    )
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, COLLECTIONS.MATCHES),
+        where("uid", "==", uid),
+        orderBy("computedAt", "desc"),
+        limit(count)
+      )
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    if (!isMissingIndex(err)) throw err;
+    const snap = await getDocs(
+      query(collection(db, COLLECTIONS.MATCHES), where("uid", "==", uid), limit(500))
+    );
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(b.computedAt || "").localeCompare(String(a.computedAt || "")))
+      .slice(0, count);
+  }
 }
 
 export async function fetchRecentBounties(count = 8) {

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { fetchProjectPool, fetchIssueList, fetchRepoOverview, fetchRepository } from "../firebase/githubService";
+import { mockProjects } from "../data/mockProjects";
 import { computeMatchScore } from "../lib/matchScore";
 import {
   fetchSavedProjectIds,
@@ -27,11 +28,13 @@ export default function ProjectDetail() {
   const [actions, setActions] = useState({});
   const [loading, setLoading] = useState(true);
   const [requested, setRequested] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const id = `${owner}/${name}`;
 
   useEffect(() => {
     let alive = true;
+    setLoadError(null);
 
     async function loadProject() {
       try {
@@ -40,7 +43,7 @@ export default function ProjectDetail() {
           fetchAllMaintainedProjects().catch(() => []),
         ]);
         if (!alive) return;
-        const all = [...pool, ...posted.map((p) => ({ ...p, maintainerPosted: true }))];
+        const all = [...pool, ...posted.map((p) => ({ ...p, maintainerPosted: true })), ...mockProjects];
         const found = all.find((p) => (p.fullName || p.id) === id);
         if (found) {
           setProject(found);
@@ -53,9 +56,11 @@ export default function ProjectDetail() {
           if (alive) setProject(repo);
         } catch (err) {
           console.error("[devcollab] repo lookup failed", owner, name, err);
+          if (alive) setLoadError(err?.status === 403 ? "rate-limit" : "unavailable");
         }
       } catch (err) {
         console.error("[devcollab] failed to load project pool", err);
+        if (alive) setLoadError("unavailable");
       } finally {
         if (alive) setLoading(false);
       }
@@ -138,11 +143,28 @@ export default function ProjectDetail() {
   if (!project) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-24 text-center text-slate-500">
-        <p className="text-4xl">🌀</p>
-        <p className="mt-3 font-medium text-slate-700">Project not found.</p>
-        <Link to="/discovery" className="mt-4 inline-block rounded-full bg-brand-500 px-6 py-2 text-sm font-semibold text-white hover:bg-brand-600">
-          Back to discovery
-        </Link>
+        <p className="text-4xl">{loadError === "rate-limit" ? "🛑" : "🌀"}</p>
+        <p className="mt-3 font-medium text-slate-700">
+          {loadError === "rate-limit"
+            ? "Couldn't reach GitHub — the API rate limit is exhausted."
+            : "Project not found."}
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          {loadError === "rate-limit"
+            ? "Add a personal access token in Profile → Settings to lift the limit, or try again in a bit."
+            : "It may have been renamed, made private, or removed."}
+        </p>
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 hover:border-slate-900"
+          >
+            Retry
+          </button>
+          <Link to="/discovery" className="mt-0 inline-block rounded-full bg-brand-500 px-6 py-2 text-sm font-semibold text-white hover:bg-brand-600">
+            Back to discovery
+          </Link>
+        </div>
       </div>
     );
   }
