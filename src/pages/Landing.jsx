@@ -7,31 +7,37 @@ const features = [
     emoji: "🧲",
     title: "Match score",
     desc: "Percentage compatibility based on your skills vs. project tech stack.",
+    accent: "bg-canary-soft",
   },
   {
     emoji: "🎯",
     title: "Good first issues",
     desc: "Curated issues picked for your level so your first PR lands fast.",
+    accent: "bg-lava",
   },
   {
     emoji: "📈",
     title: "Contribution tracker",
     desc: "PRs merged, reviews given, streaks kept — all in one timeline.",
+    accent: "bg-mint",
   },
   {
     emoji: "🛠️",
     title: "Guided onboarding",
     desc: "README and CONTRIBUTING pulled straight from the repo.",
+    accent: "bg-skyish",
   },
   {
     emoji: "👥",
     title: "Team up",
     desc: "Find co-contributors on the same project and ship together.",
+    accent: "bg-coral",
   },
   {
     emoji: "🎖️",
     title: "Skill badges",
     desc: "Verified badges for the stacks you've contributed to.",
+    accent: "bg-canary-soft",
   },
 ];
 
@@ -40,13 +46,17 @@ export default function Landing() {
 
   return (
     <div>
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-brand-50 via-white to-accent-50" />
+      <section className="relative overflow-hidden border-b-2 border-ink">
+        <div className="absolute inset-0 -z-10 grid grid-cols-6 bg-canvas">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="border-r-2 border-ink/10" />
+          ))}
+        </div>
         <div className="mx-auto max-w-6xl px-4 py-24 text-center">
           <motion.span
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-block rounded-full border border-brand-200 bg-white px-4 py-1 text-sm font-medium text-brand-600"
+            className="badge-brutal bg-canary px-4 py-1.5 text-xs text-ink"
           >
             Tinder for open source
           </motion.span>
@@ -55,11 +65,11 @@ export default function Landing() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="mx-auto mt-6 max-w-3xl text-5xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-6xl"
+            className="heading-brutal mx-auto mt-6 max-w-3xl text-5xl text-ink sm:text-6xl"
           >
             Stop hunting issues.
             <br />
-            <span className="bg-gradient-to-r from-brand-500 to-accent-500 bg-clip-text text-transparent">
+            <span className="inline-block border-4 border-ink bg-canary px-3 shadow-[6px_6px_0_#171717]">
               Start shipping.
             </span>
           </motion.h1>
@@ -68,7 +78,7 @@ export default function Landing() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mx-auto mt-6 max-w-xl text-lg text-slate-600"
+            className="mx-auto mt-8 max-w-xl text-lg font-medium text-ink/70"
           >
             Connect your GitHub, get a match score against every project, and land your first
             contribution in hours — not weeks.
@@ -78,17 +88,17 @@ export default function Landing() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="mt-8 flex items-center justify-center gap-3"
+            className="mt-10 flex items-center justify-center gap-3"
           >
             <Link
-              to={user ? "/discovery" : "/login"}
-              className="rounded-full bg-slate-900 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-700"
+              to={user ? "/dashboard" : "/login"}
+              className="btn-brutal rounded-none bg-ink px-8 py-3.5 text-[15px] text-canvas"
             >
-              {user ? "Find your match" : "Get matched in 2 minutes"}
+              {user ? "Open mission control" : "Get matched in 2 minutes"}
             </Link>
             <Link
               to="/discovery"
-              className="rounded-full border border-slate-300 bg-white px-8 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
+              className="btn-brutal rounded-none bg-white px-8 py-3.5 text-[15px] text-ink"
             >
               Browse projects
             </Link>
@@ -96,11 +106,11 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-24">
-        <h2 className="text-center text-2xl font-bold text-slate-900">
-          Built for contributors <span className="text-brand-500">and</span> maintainers
+      <section className="mx-auto max-w-6xl px-4 py-24">
+        <h2 className="heading-brutal text-center text-3xl text-ink">
+          Built for contributors <span className="bg-black px-2 text-canary">&</span> maintainers
         </h2>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
@@ -108,20 +118,20 @@ export default function Landing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.05 }}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              className={`brutal ${f.accent} p-6 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none`}
             >
-              <div className="text-3xl">{f.emoji}</div>
-              <h3 className="mt-3 font-semibold text-slate-900">{f.title}</h3>
-              <p className="mt-1 text-sm text-slate-600">{f.desc}</p>
+              <div className="inline-block border-2 border-ink bg-white px-3 py-1 text-2xl shadow-[2px_2px_0_#171717]">{f.emoji}</div>
+              <h3 className="mt-4 text-lg font-extrabold uppercase tracking-tight text-ink">{f.title}</h3>
+              <p className="mt-1 text-sm font-medium text-ink/70">{f.desc}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section className="border-t border-slate-200 bg-white">
+      <section className="border-t-2 border-ink bg-white">
         <div className="mx-auto max-w-6xl px-4 py-16 text-center">
-          <h2 className="text-3xl font-bold text-slate-900">How matching works</h2>
-          <div className="mt-10 grid gap-8 text-left sm:grid-cols-3">
+          <h2 className="heading-brutal text-3xl text-ink">How matching works</h2>
+          <div className="mt-12 grid gap-8 text-left sm:grid-cols-3">
             {[
               {
                 n: "01",
@@ -139,12 +149,12 @@ export default function Landing() {
                 desc: "Good first issues, onboarding guides, and a direct link to the repo.",
               },
             ].map((s) => (
-              <div key={s.n} className="relative rounded-2xl border border-slate-200 p-6">
-                <span className="absolute -top-4 left-6 rounded-full bg-brand-500 px-3 py-1 text-xs font-bold text-white">
+              <div key={s.n} className="relative border-2 border-ink bg-canvas p-6 pb-8 pt-8 shadow-[4px_4px_0_#171717]">
+                <span className="absolute -top-4 left-6 border-2 border-ink bg-canary px-3 py-1 font-mono text-sm font-bold text-ink shadow-[2px_2px_0_#171717]">
                   {s.n}
                 </span>
-                <h3 className="mt-2 font-semibold text-slate-900">{s.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{s.desc}</p>
+                <h3 className="text-lg font-extrabold uppercase tracking-tight text-ink">{s.title}</h3>
+                <p className="mt-1 text-sm font-medium text-ink/70">{s.desc}</p>
               </div>
             ))}
           </div>

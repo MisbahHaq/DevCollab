@@ -137,6 +137,10 @@ export async function fetchSavedProjectIds(uid) {
   }, {});
 }
 
+export async function clearProjectAction(uid, projectId) {
+  await deleteDoc(doc(db, COLLECTIONS.SAVED_PROJECTS, `${uid}_${projectId}`));
+}
+
 export async function fetchProjectRequesters() {
   const snap = await getDocs(collection(db, COLLECTIONS.SAVED_PROJECTS));
   return snap.docs.map((d) => d.data());
@@ -394,12 +398,19 @@ export async function fetchMyMentorships(uid) {
 }
 
 export async function sendMessage(threadId, uid, text) {
-  await setDoc(doc(collection(db, COLLECTIONS.MESSAGES)), {
+  const ref = doc(collection(db, COLLECTIONS.MESSAGES));
+  await setDoc(ref, {
     threadId,
     uid,
     text,
     at: new Date().toISOString(),
   });
+  await updateDoc(doc(db, COLLECTIONS.THREADS, threadId), {
+    lastActivityAt: new Date().toISOString(),
+    lastMessage: String(text).slice(0, 140),
+    lastSenderUid: uid,
+  }).catch(() => {});
+  return ref.id;
 }
 
 export async function fetchThreadMessages(threadId) {
@@ -410,6 +421,140 @@ export async function fetchThreadMessages(threadId) {
       orderBy("at", "asc"),
       limit(100)
     )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------------------------------------------------------------------------
+// Direct messages + project discussions (threads)
+// ---------------------------------------------------------------------------
+
+export async function startDirectMessage(uid, otherUid, text) {
+  const key = [uid, otherUid].sort().join("_");
+  const existing = await getDocs(
+    query(
+      collection(db, COLLECTIONS.THREADS),
+      where("partnerKey", "==", key),
+      where("kind", "==", "dm")
+    )
+  );
+  const ref = existing.empty
+    ? doc(collection(db, COLLECTIONS.THREADS))
+    : doc(db, COLLECTIONS.THREADS, existing.docs[0].id);
+
+  if (existing.empty) {
+    await setDoc(ref, {
+      kind: "dm",
+      partnerKey: key,
+      participantUids: [uid, otherUid],
+      createdAt: new Date().toISOString(),
+    });
+  }
+  const textToSend = text.trim() || "Hello!";
+  await sendMessage(ref.id, uid, textToSend);
+  return ref.id;
+}
+
+export async function createProjectThread(uid, project, message) {
+  const ref = doc(collection(db, COLLECTIONS.THREADS));
+  const fullName = project.id || project.projectId || `${project.owner}/${project.name}`;
+  await setDoc(ref, {
+    kind: "project",
+    projectOwner: project.owner || project.projectOwner,
+    projectName: project.name || project.projectName,
+    projectFullName: fullName,
+    participantUids: [uid],
+    createdAt: new Date().toISOString(),
+  });
+  await sendMessage(
+    ref.id,
+    uid,
+    message || `Let's talk about ${fullName} — I'm interested in contributing.`
+  );
+  return ref.id;
+}
+
+export async function fetchMyThreads(uid) {
+  const snap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.THREADS),
+      where("participantUids", "array-contains", uid),
+      orderBy("lastActivityAt", "desc"),
+      limit(50)
+    )
+  );
+  let threads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  if (threads.length === 0) {
+    // Fallback for legacy threads saved before lastActivityAt existed
+    const all = await getDocs(query(collection(db, COLLECTIONS.THREADS), limit(100)));
+    threads = all.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((t) => (t.participantUids || []).includes(uid))
+      .sort((a, b) => String(b.lastActivityAt || b.createdAt).localeCompare(String(a.lastActivityAt || a.createdAt)));
+  }
+
+  const otherUids = [
+    ...new Set(
+      threads.flatMap((t) =>
+        t.kind === "dm" || t.kind === "mentorship"
+          ? (t.participantUids || []).filter((p) => p !== uid)
+          : []
+      )
+    ),
+  ];
+  const userMap = {};
+  await Promise.all(
+    otherUids.slice(0, 20).map(async (u) => {
+      try {
+        userMap[u] = (await getUserDoc(u)) || { uid: u };
+      } catch {
+        userMap[u] = { uid: u };
+      }
+    })
+  );
+
+  return threads
+    .map((t) => ({
+      ...t,
+      otherUser: t.kind === "dm" || t.kind === "mentorship"
+        ? userMap[t.participantUids.find((p) => p !== uid)]
+        : null,
+    }))
+    .filter((t) => !t.kind && true);
+}
+
+export async function fetchUsers(limitN = 50) {
+  const snap = await getDocs(query(collection(db, COLLECTIONS.USERS), limit(limitN)));
+  return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+}
+
+// ---------------------------------------------------------------------------
+// Activity feed (recent matches, bounties, team openings)
+// ---------------------------------------------------------------------------
+
+export async function fetchRecentMatches(uid, count = 8) {
+  const snap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.MATCHES),
+      where("uid", "==", uid),
+      orderBy("computedAt", "desc"),
+      limit(count)
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchRecentBounties(count = 8) {
+  const snap = await getDocs(
+    query(collection(db, COLLECTIONS.BOUNTIES), orderBy("createdAt", "desc"), limit(count))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function fetchRecentTeams(count = 8) {
+  const snap = await getDocs(
+    query(collection(db, COLLECTIONS.TEAMS), orderBy("createdAt", "desc"), limit(count))
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

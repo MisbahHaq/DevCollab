@@ -5,10 +5,12 @@ import MatchScoreBar from "./MatchScoreBar";
 import { matchTier } from "../lib/matchScore";
 
 const DIFFICULTY_STYLES = {
-  easy: "bg-emerald-100 text-emerald-700",
-  medium: "bg-amber-100 text-amber-700",
-  hard: "bg-rose-100 text-rose-700",
+  easy: "bg-mint",
+  medium: "bg-canary-soft",
+  hard: "bg-coral",
 };
+
+const LANG_CHIPS = ["bg-lava", "bg-skyish", "bg-mint", "bg-coral", "bg-canary-soft"];
 
 export default function ProjectCard({ project, match, actions = {}, onAction }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -19,26 +21,26 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
       layout
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+      className="brutal bg-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <Link to={`/project/${project.owner}/${project.name}`} className="flex items-center gap-2">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-white">
+            <Link to={`/project/${project.owner}/${project.name}`} className="flex items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center border-2 border-ink bg-ink text-sm font-extrabold text-canary shadow-[2px_2px_0_#171717]">
                 {project.owner?.slice(0, 1).toUpperCase()}
               </span>
               <div>
-                <h3 className="truncate font-semibold text-slate-900 hover:text-brand-600">
+                <h3 className="truncate font-extrabold uppercase tracking-tight text-ink hover:underline">
                   {project.owner}/{project.name}
                 </h3>
-                <span className="text-xs text-slate-500">
+                <span className="font-mono text-xs text-ink/60">
                   ⭐ {formatCount(project.stars)} · {project.openIssues} open issues
                 </span>
               </div>
             </Link>
             {project.maintainerPosted && (
-              <span className="mt-1 inline-block rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-600">
+              <span className="badge-brutal mt-1 bg-lava px-2 py-0.5 text-[10px] text-ink">
                 📣 Posted by maintainer
               </span>
             )}
@@ -48,58 +50,55 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
           </div>
         </div>
 
-        <p className="mt-3 line-clamp-2 text-sm text-slate-600">{project.description}</p>
+        <p className="mt-3 line-clamp-2 text-sm font-medium text-ink/80">{project.description}</p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {(project.languages || []).map((lang) => (
+          {(project.languages || []).map((lang, i) => (
             <span
               key={lang}
-              className="rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-600"
+              className={`badge-brutal px-2 py-0.5 text-[10px] text-ink ${LANG_CHIPS[i % LANG_CHIPS.length]}`}
             >
               {lang}
             </span>
           ))}
-          <span className={`rounded-md px-2 py-0.5 text-xs font-medium capitalize ${DIFFICULTY_STYLES[project.difficulty]}`}>
+          <span className={`badge-brutal px-2 py-0.5 text-[10px] capitalize text-ink ${DIFFICULTY_STYLES[project.difficulty]}`}>
             {project.difficulty}
           </span>
           {project.hasGoodFirstIssues && (
-            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600">
-              🌱 good first issues
-            </span>
+            <span className="badge-brutal bg-mint px-2 py-0.5 text-[10px] text-ink">🌱 first issues</span>
           )}
         </div>
 
         {showBreakdown && match?.breakdown && (
-          <div className="mt-4 rounded-xl bg-slate-50 p-4">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Why you match</h4>
+          <div className="mt-4 border-2 border-ink bg-canvas p-4 shadow-[3px_3px_0_#171717]">
+            <h4 className="text-xs font-extrabold uppercase tracking-wide text-ink">Why you match</h4>
             <ul className="mt-2 space-y-2">
               {Object.entries(match.breakdown).map(([key, b]) => (
                 <li key={key} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">{b.label}</span>
-                  <span className="font-medium text-slate-900" style={{ color: matchTier(b.score).color }}>
+                  <span className="text-ink/70">{b.label}</span>
+                  <span className="font-mono font-bold" style={{ color: matchTier(b.score).color }}>
                     {b.score}%
                   </span>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 border-t border-slate-200 pt-3 text-xs text-slate-500">
-              ⏱️ Estimated first contribution:{" "}
-              <span className="font-medium text-slate-700">{project.estimatedFirstContribution}</span>
+            <div className="mt-3 border-t-2 border-ink/15 pt-3 font-mono text-xs text-ink/60">
+              ⏱ estimated first contribution: {project.estimatedFirstContribution}
             </div>
           </div>
         )}
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setShowBreakdown((s) => !s)}
-              className="text-xs font-medium text-brand-600 hover:text-brand-500"
+              className="btn-brutal rounded-none bg-canvas px-2 py-1 text-[11px] text-ink hover:bg-canvas"
             >
               {showBreakdown ? "Hide breakdown" : "Why do I match?"}
             </button>
             <Link
               to={`/project/${project.owner}/${project.name}`}
-              className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              className="btn-brutal rounded-none bg-skyish px-2 py-1 text-[11px] text-ink hover:bg-skyish"
             >
               Details →
             </Link>
@@ -108,12 +107,20 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
           {onAction ? (
             <div className="flex items-center gap-2">
               <motion.button
-                whileTap={{ scale: 0.85 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => onAction(project, "bookmark")}
+                className={`btn-brutal rounded-none px-3 py-1.5 text-[11px] ${
+                  state === "bookmark" ? "bg-canary text-ink" : "bg-canvas text-ink hover:bg-canary-soft"
+                }`}
+                title="Bookmark / shortlist"
+              >
+                {state === "bookmark" ? "★ Saved" : "☆ Save"}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={() => onAction(project, "pass")}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  state === "pass"
-                    ? "border-slate-700 bg-slate-900 text-white"
-                    : "border-slate-300 text-slate-500 hover:border-slate-400"
+                className={`btn-brutal rounded-none px-3 py-1.5 text-[11px] ${
+                  state === "pass" ? "bg-ink text-canvas" : "bg-canvas text-ink hover:bg-coral"
                 }`}
                 title="Not for me"
               >
@@ -122,12 +129,10 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onAction(project, "like")}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  state === "like"
-                    ? "bg-accent-500 text-white"
-                    : "bg-brand-500 text-white hover:bg-brand-600"
+                className={`btn-brutal rounded-none px-3 py-1.5 text-[11px] ${
+                  state === "like" ? "bg-coral text-ink" : "bg-mint text-ink hover:bg-mint"
                 }`}
-                title="Save project"
+                title="Like / tell the maintainer you're interested"
               >
                 {state === "like" ? "♥ Liked" : "♥ Like"}
               </motion.button>
@@ -139,7 +144,7 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
               }`}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+              className="btn-brutal rounded-none bg-ink px-4 py-1.5 text-[11px] text-canvas hover:bg-ink"
             >
               {project.hasGoodFirstIssues ? "First issue →" : "View on GitHub"}
             </a>

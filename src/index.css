@@ -1,12 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap");
 @import "tailwindcss";
 
 @theme {
+  --color-canvas: #faf7f2;
+  --color-ink: #171717;
   --color-brand-50: #eef2ff;
   --color-brand-100: #e0e7ff;
   --color-brand-500: #6366f1;
   --color-brand-600: #4f46e5;
   --color-accent-500: #ec4899;
-  --font-display: "Inter", system-ui, sans-serif;
+  --color-canary: #fde047;
+  --color-canary-soft: #fef08a;
+  --color-lava: #e9d5ff;
+  --color-mint: #a7f3d0;
+  --color-coral: #fecdd3;
+  --color-skyish: #bae6fd;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
 }
 
 :root {
@@ -14,7 +23,12 @@
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased font-display;
+  @apply bg-canvas text-ink antialiased;
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 ::-webkit-scrollbar {
@@ -22,8 +36,89 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full;
+  @apply bg-ink/30 border-2 border-canvas;
+  border-radius: 0;
 }
 ::-webkit-scrollbar-track {
   @apply bg-transparent;
+}
+
+@layer components {
+  /* Hard-edge neo-brutalist surfaces */
+  .brutal {
+    border: 2px solid #171717;
+    box-shadow: 4px 4px 0 #171717;
+  }
+  .brutal-sm {
+    border: 2px solid #171717;
+    box-shadow: 3px 3px 0 #171717;
+  }
+  .brutal-press {
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease;
+  }
+  .brutal-press:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 #171717;
+  }
+  .brutal-press:active {
+    transform: translate(3px, 3px);
+    box-shadow: none;
+  }
+
+  .btn-brutal {
+    border: 2px solid #171717;
+    box-shadow: 3px 3px 0 #171717;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.8125rem;
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease,
+      background-color 0.1s ease;
+  }
+  .btn-brutal:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #171717;
+  }
+  .btn-brutal:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
+  .badge-brutal {
+    display: inline-flex;
+    align-items: center;
+    border: 2px solid #171717;
+    box-shadow: 2px 2px 0 #171717;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .input-brutal {
+    width: 100%;
+    border: 2px solid #171717;
+    background: #ffffff;
+    font-size: 0.875rem;
+    font-family: var(--font-display);
+    transition: box-shadow 0.1s ease;
+    border-radius: 0;
+  }
+  .input-brutal:focus {
+    outline: none;
+    box-shadow: 3px 3px 0 #171717;
+  }
+  .input-brutal::placeholder {
+    color: #78716c;
+  }
+
+  .heading-brutal {
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
 }

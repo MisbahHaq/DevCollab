@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { fetchProjectPool } from "../firebase/githubService";
@@ -22,7 +23,8 @@ const SORTERS = {
 
 export default function Discovery() {
   const { user, profile } = useAuth();
-  const [filters, setFilters] = useState({ language: "", difficulty: "", size: "", sort: "match" });
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState({ language: "", difficulty: "", size: "", sort: "match", query: searchParams.get("q") || "" });
   const [pool, setPool] = useState([]);
   const [actions, setActions] = useState({});
   const [tab, setTab] = useState("for-you");
@@ -72,6 +74,12 @@ export default function Discovery() {
     };
   }, [user]);
 
+  // Keep the query filter in sync with ?q= (navbar search lands here live)
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q != null) setFilters((f) => ({ ...f, query: q }));
+  }, [searchParams]);
+
   const developer = useMemo(
     () => ({
       primaryLanguage: profile?.primaryLanguage,
@@ -99,11 +107,21 @@ export default function Discovery() {
       list = list.filter((p) => actions[p.id] === "like");
     } else if (tab === "passed") {
       list = list.filter((p) => actions[p.id] === "pass");
+    } else if (tab === "saved") {
+      list = list.filter((p) => actions[p.id] === "bookmark");
     }
 
     if (filters.language) list = list.filter((p) => (p.languages || []).includes(filters.language));
     if (filters.difficulty) list = list.filter((p) => p.difficulty === filters.difficulty);
     if (filters.size) list = list.filter((p) => p.size === filters.size);
+    if (filters.query) {
+      const q = filters.query.toLowerCase().replaceAll("/", " ");
+      list = list.filter((p) =>
+        [p.owner, p.name, p.fullName, p.id, p.description, ...(p.languages || []), ...(p.frameworks || []), ...(p.topics || [])]
+          .filter(Boolean)
+          .some((field) => field.toLowerCase().includes(q))
+      );
+    }
 
     return [...list].sort(SORTERS[filters.sort] || SORTERS.match);
   }, [allProjects, filters, tab, actions]);
@@ -126,6 +144,7 @@ export default function Discovery() {
 
   const tabs = [
     { id: "for-you", label: "For you" },
+    { id: "saved", label: "⭐ Saved", count: Object.values(actions).filter((a) => a === "bookmark").length },
     { id: "liked", label: "Liked ♥", count: Object.values(actions).filter((a) => a === "like").length },
     { id: "passed", label: "Passed" },
   ];
@@ -134,51 +153,61 @@ export default function Discovery() {
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Discovery feed</h1>
-          <p className="mt-1 text-slate-600">
-            Like projects to save them, pass to train your matches. Real repos with good first issues.
+          <h1 className="heading-brutal text-4xl text-ink">Discovery feed</h1>
+          <p className="mt-2 font-medium text-ink/60">
+            Star a project to shortlist it, ♥ to tell the maintainer you're interested, pass to
+            train your matches.
           </p>
         </div>
         <span
-          className={`hidden rounded-full px-3 py-1 text-xs font-semibold sm:inline-block ${
-            live ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+          className={`badge-brutal px-3 py-1 text-[11px] ${
+            live ? "bg-mint text-ink" : "bg-canary-soft text-ink"
           }`}
         >
           {loading ? "…" : live ? "● Live GitHub data" : "● Seed data"}
         </span>
       </div>
 
-      {error && <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{error}</p>}
+      {error && (
+        <p className="mt-4 inline-block border-2 border-ink bg-coral px-4 py-2 font-mono text-xs font-bold text-ink">
+          {error}
+        </p>
+      )}
+
+      {filters.query && (
+        <p className="mt-4 inline-block border-2 border-ink bg-canary-soft px-4 py-2 font-mono text-xs font-bold text-ink">
+          🔎 {projects.length} result{projects.length === 1 ? "" : "s"} for "{filters.query}"
+        </p>
+      )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {tabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                tab === t.id ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+              className={`btn-brutal rounded-none px-4 py-2 ${
+                tab === t.id ? "bg-ink text-canvas" : "bg-white text-ink hover:bg-canary-soft"
               }`}
             >
               {t.label}
-              {t.count ? <span className="ml-1 opacity-70">{t.count}</span> : null}
+              {t.count ? <span className="ml-1 font-mono">{t.count}</span> : null}
             </button>
           ))}
         </div>
-        <Filters onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
+        <Filters query={filters.query} onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))} />
       </div>
 
       {loading ? (
         <div className="mt-8 grid gap-5 lg:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5">
+            <div key={i} className="brutal animate-pulse bg-white p-5">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-slate-200" />
-                <div className="h-4 w-40 rounded bg-slate-200" />
+                <div className="h-10 w-10 border-2 border-ink bg-canvas" />
+                <div className="h-4 w-40 border-2 border-ink bg-canvas" />
               </div>
-              <div className="mt-4 h-3 w-full rounded bg-slate-100" />
-              <div className="mt-2 h-3 w-2/3 rounded bg-slate-100" />
-              <div className="mt-4 h-6 w-28 rounded-full bg-slate-200" />
+              <div className="mt-4 h-3 w-full border-2 border-ink bg-canvas/60" />
+              <div className="mt-2 h-3 w-2/3 border-2 border-ink bg-canvas/60" />
             </div>
           ))}
         </div>
@@ -195,16 +224,32 @@ export default function Discovery() {
           ))}
         </motion.div>
       ) : (
-        <div className="mt-16 text-center text-slate-500">
-          <p className="text-4xl">{tab === "liked" ? "💜" : "🔍"}</p>
-          <p className="mt-3 font-medium">
+        <div className="brutal mt-10 bg-white p-10 text-center text-ink">
+          <p className="text-4xl">{tab === "liked" ? "💜" : tab === "saved" ? "⭐" : filters.query ? "🔎" : "🔍"}</p>
+          <p className="mt-3 font-extrabold uppercase tracking-tight">
             {tab === "liked"
-              ? "Nothing liked yet — hit ♥ on a project to save it here."
-              : tab === "passed"
-                ? "No passed projects yet."
-                : "No projects match those filters."}
+              ? "Nothing liked yet — hit ♥ on a project."
+              : tab === "saved"
+                ? "Nothing saved yet — hit ☆ on a project."
+                : tab === "passed"
+                  ? "No passed projects yet."
+                  : filters.query
+                    ? `No results for "${filters.query}"`
+                    : "No projects match those filters."}
           </p>
-          <p className="text-sm">Try clearing the language or difficulty filter.</p>
+          <p className="mt-1 text-sm text-ink/60">
+            {filters.query
+              ? "Try a language, framework, or topic — e.g. \"react\", \"python\", \"rust\"."
+              : "Try clearing the language or difficulty filter."}
+          </p>
+          {filters.query && (
+            <button
+              onClick={() => setFilters((f) => ({ ...f, query: "" }))}
+              className="btn-brutal mt-5 inline-block rounded-none bg-coral px-5 py-2 text-ink hover:bg-coral"
+            >
+              Clear search
+            </button>
+          )}
         </div>
       )}
     </div>

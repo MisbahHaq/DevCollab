@@ -7,6 +7,13 @@ import { fetchUserEvents, setGitHubToken, getGitHubToken } from "../firebase/git
 
 const MONTHLY_GOAL = 5;
 
+const TYPE_STYLES = {
+  merge: "bg-mint",
+  review: "bg-skyish",
+  docs: "bg-lava",
+  opened: "bg-canary-soft",
+};
+
 export default function Profile() {
   const { user, profile, mergeContributions } = useAuth();
   const [contributions, setContributions] = useState([]);
@@ -51,114 +58,153 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="heading-brutal text-4xl text-ink">Your profile</h1>
+          <p className="mt-2 font-medium text-ink/60">
+            Identity, contribution stats, badges and your GitHub sync.
+          </p>
+        </div>
+        <Link to="/portfolio" className="btn-brutal rounded-none bg-mint px-5 py-2 text-ink hover:bg-mint">
+          View portfolio ↗
+        </Link>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-3">
         <div className="space-y-6">
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="brutal bg-white p-6 text-center">
             {profile?.photoURL || user?.photoURL ? (
-              <img src={profile?.photoURL || user?.photoURL} alt="avatar" className="mx-auto h-24 w-24 rounded-full ring-4 ring-brand-100" referrerPolicy="no-referrer" />
+              <img
+                src={profile?.photoURL || user?.photoURL}
+                alt="avatar"
+                className="mx-auto h-24 w-24 border-2 border-ink object-cover shadow-[4px_4px_0_#171717]"
+                referrerPolicy="no-referrer"
+              />
             ) : (
-              <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-brand-500 text-3xl font-bold text-white">
+              <div className="mx-auto grid h-24 w-24 place-items-center border-2 border-ink bg-lava text-3xl font-extrabold text-ink shadow-[4px_4px_0_#171717]">
                 {(profile?.displayName || "?").slice(0, 1).toUpperCase()}
               </div>
             )}
-            <h1 className="mt-3 text-xl font-bold text-slate-900">{profile?.displayName || user?.displayName || "Developer"}</h1>
+            <h1 className="mt-4 text-xl font-extrabold uppercase tracking-tight text-ink">
+              {profile?.displayName || user?.displayName || "Developer"}
+            </h1>
             {profile?.githubUsername && (
-              <a href={`https://github.com/${profile.githubUsername}`} target="_blank" rel="noreferrer" className="text-sm text-brand-600 hover:underline">
+              <a
+                href={`https://github.com/${profile.githubUsername}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block font-mono text-sm font-bold text-ink underline decoration-2 underline-offset-2 hover:bg-canary"
+              >
                 @{profile.githubUsername}
               </a>
             )}
-            <div className="mt-3 flex justify-center gap-2">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-600">{profile?.level || "beginner"}</span>
+            <div className="mt-4 flex justify-center gap-2">
+              <span className="badge-brutal bg-canary-soft px-3 py-1 text-[11px] capitalize text-ink">{profile?.level || "beginner"}</span>
               {profile?.primaryLanguage && (
-                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-600">{profile.primaryLanguage}</span>
+                <span className="badge-brutal bg-lava px-3 py-1 text-[11px] text-ink">{profile.primaryLanguage}</span>
               )}
             </div>
-            {profile?.goals && <p className="mt-3 text-xs text-slate-500">🎯 {profile.goals}</p>}
+            {profile?.goals && (
+              <p className="mt-4 inline-block border-2 border-ink bg-skyish/50 px-3 py-1.5 font-mono text-xs font-bold text-ink">🎯 {profile.goals}</p>
+            )}
           </motion.section>
 
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="rounded-2xl border border-slate-200 bg-white p-6">
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }} className="brutal bg-white p-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">GitHub stats</h2>
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">GitHub stats</h2>
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                className="btn-brutal rounded-none bg-ink px-3 py-1.5 text-[11px] text-canvas hover:bg-ink disabled:translate-x-0 disabled:translate-y-0 disabled:shadow-[3px_3px_0_#171717] disabled:opacity-40"
               >
                 {syncing ? "Syncing..." : "⚡ Sync now"}
               </button>
             </div>
-            {syncMsg && <p className="mt-2 text-xs text-slate-500">{syncMsg}</p>}
-            <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+            {syncMsg && (
+              <p className="mt-2 inline-block border-2 border-ink bg-canary-soft px-2 py-1 font-mono text-[11px] font-bold text-ink">{syncMsg}</p>
+            )}
+            <div className="mt-4 grid grid-cols-3 gap-3">
               {[
-                { label: "PRs merged", value: stats.totalMerged },
-                { label: "PRs opened", value: stats.totalOpened },
-                { label: "Reviews", value: stats.reviews },
+                { label: "PRs merged", value: stats.totalMerged, accent: "bg-mint" },
+                { label: "PRs opened", value: stats.totalOpened, accent: "bg-skyish" },
+                { label: "Reviews", value: stats.reviews, accent: "bg-lava" },
               ].map((s) => (
-                <div key={s.label} className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-2xl font-bold text-slate-900">{s.value}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-500">{s.label}</p>
+                <div key={s.label} className={`brutal-sm ${s.accent} p-3 text-center`}>
+                  <p className="font-mono text-2xl font-bold leading-none text-ink">{s.value}</p>
+                  <p className="mt-1.5 text-[10px] font-extrabold uppercase tracking-wide text-ink/70">{s.label}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center justify-between rounded-xl bg-amber-50 px-4 py-2 text-xs text-amber-700">
-              <span>Current streak</span>
-              <span className="font-bold">{stats.streak || 0} days 🔥</span>
+            <div className="mt-4 flex items-center justify-between border-2 border-ink bg-canary-soft px-4 py-2 shadow-[2px_2px_0_#171717]">
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-ink">Current streak</span>
+              <span className="font-mono text-sm font-bold text-ink">{stats.streak || 0} days 🔥</span>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              {(profile?.languages || []).map((lang) => (
-                <span key={lang} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{lang}</span>
+              {(profile?.languages || []).map((lang, i) => (
+                <span key={lang} className={`badge-brutal px-2 py-0.5 text-[10px] text-ink ${["bg-lava", "bg-skyish", "bg-mint", "bg-coral", "bg-canary-soft"][i % 5]}`}>
+                  {lang}
+                </span>
               ))}
             </div>
-            <Link to="/onboarding" className="mt-5 block rounded-full border border-slate-300 py-2 text-center text-sm font-semibold text-slate-700 hover:border-slate-400">
+            <Link to="/onboarding" className="btn-brutal mt-5 block rounded-none bg-white py-2 text-center text-sm text-ink">
               Edit profile
             </Link>
           </motion.section>
 
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-2xl border border-slate-200 bg-white p-6">
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="brutal bg-white p-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-slate-900">Monthly goal</h2>
-              <span className="text-sm font-bold text-brand-600">{contributions.length}/{MONTHLY_GOAL}</span>
+              <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">Monthly goal</h2>
+              <span className="font-mono text-sm font-bold text-ink">{contributions.length}/{MONTHLY_GOAL}</span>
             </div>
-            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
-              <motion.div initial={{ width: 0 }} animate={{ width: `${progress}%` }} className="h-full rounded-full bg-gradient-to-r from-brand-500 to-accent-500" />
+            <div className="mt-3 h-4 w-full border-2 border-ink bg-white">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                className="h-full bg-canary"
+              />
             </div>
-            <p className="mt-2 text-xs text-slate-500">
-              {contributions.length >= MONTHLY_GOAL ? "Goal smashed. Keep the streak alive! 🎉" : `${MONTHLY_GOAL - contributions.length} more contributions this month.`}
+            <p className="mt-2 font-mono text-xs text-ink/60">
+              {contributions.length >= MONTHLY_GOAL
+                ? "Goal smashed. Keep the streak alive! 🎉"
+                : `${MONTHLY_GOAL - contributions.length} more contributions this month.`}
             </p>
           </motion.section>
 
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="font-semibold text-slate-900">Share your portfolio</h2>
-            <p className="mt-1 text-xs text-slate-500">
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }} className="brutal bg-lava p-6">
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">Share your portfolio</h2>
+            <p className="mt-1 text-xs font-medium text-ink/70">
               Auto-built from your contributions, badges, and stack.
             </p>
             <Link
               to="/portfolio"
-              className="mt-4 block rounded-full bg-brand-500 py-2 text-center text-sm font-semibold text-white hover:bg-brand-600"
+              className="btn-brutal mt-4 block rounded-none bg-ink py-2 text-center text-canvas"
             >
               Open portfolio →
             </Link>
             {profile?.portfolioUsername && (
-              <p className="mt-2 text-center text-xs text-slate-400">devcollab.com/@{profile.portfolioUsername}</p>
+              <p className="mt-2 text-center font-mono text-xs text-ink/60">devcollab.com/@{profile.portfolioUsername}</p>
             )}
           </motion.section>
         </div>
 
         <div className="space-y-6 lg:col-span-2">
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="font-semibold text-slate-900">Skill badges</h2>
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="brutal bg-white p-6">
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">Skill badges</h2>
             {!profile?.badges?.length ? (
-              <p className="mt-3 text-sm text-slate-500">
+              <p className="mt-3 text-sm font-medium text-ink/60">
                 No badges yet. Merge a PR to earn your first one — it auto-appears here and on your portfolio.
               </p>
             ) : (
               <div className="mt-4 flex flex-wrap gap-3">
-                {profile.badges.map((b) => (
-                  <div key={b.id} className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2">
+                {profile.badges.map((b, i) => (
+                  <div
+                    key={b.id}
+                    className={`brutal-sm flex items-center gap-3 border-ink px-4 py-2 ${["bg-canary-soft", "bg-mint", "bg-lava", "bg-skyish", "bg-coral"][i % 5]}`}
+                  >
                     <span className="text-2xl">{b.emoji}</span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{b.name}</p>
-                      <p className="text-[11px] text-slate-500">{b.description}</p>
+                      <p className="text-sm font-extrabold uppercase tracking-tight text-ink">{b.name}</p>
+                      <p className="font-mono text-[11px] text-ink/60">{b.description}</p>
                     </div>
                   </div>
                 ))}
@@ -166,43 +212,50 @@ export default function Profile() {
             )}
           </motion.section>
 
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="font-semibold text-slate-900">Contribution timeline</h2>
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="brutal bg-white p-6">
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">Contribution timeline</h2>
             {contributions.length === 0 ? (
-              <div className="mt-6 text-center text-slate-500">
+              <div className="mt-6 text-center text-ink">
                 <p className="text-4xl">🫙</p>
-                <p className="mt-3 font-medium text-slate-700">No contributions tracked yet</p>
-                <p className="mt-1 text-sm">Hit “Sync now” to pull your recent GitHub activity, or start with a project.</p>
-                <div className="mt-5 flex justify-center gap-3">
-                  <button onClick={handleSync} disabled={syncing} className="rounded-full bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                <p className="mt-3 font-extrabold uppercase tracking-tight">No contributions tracked yet</p>
+                <p className="mt-1 text-sm font-medium text-ink/60">
+                  Hit "Sync now" to pull your recent GitHub activity, or start with a project.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <button onClick={handleSync} disabled={syncing} className="btn-brutal rounded-none bg-ink px-6 py-2 text-canvas hover:bg-ink disabled:opacity-40">
                     {syncing ? "Syncing..." : "⚡ Sync GitHub activity"}
                   </button>
-                  <Link to="/discovery" className="rounded-full bg-brand-500 px-6 py-2 text-sm font-semibold text-white hover:bg-brand-600">
+                  <Link to="/discovery" className="btn-brutal rounded-none bg-canary px-6 py-2 text-ink hover:bg-canary">
                     Find a project
                   </Link>
                 </div>
               </div>
             ) : (
               <ul className="mt-4 space-y-3">
-                {contributions.slice(0, 20).map((c) => (
-                  <li key={c.id} className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-                    <span className="text-lg">{c.type === "merge" ? "✅" : c.type === "review" ? "🔎" : "🆕"}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">{c.title || c.prTitle || "Contribution"}</p>
-                      <p className="text-xs text-slate-500">{c.repo || "repo"}</p>
-                    </div>
-                    <span className="text-xs text-slate-400">
-                      {c.at ? new Date(c.at).toLocaleDateString() : new Date(c.loggedAt).toLocaleDateString()}
-                    </span>
-                  </li>
-                ))}
+                {contributions.slice(0, 20).map((c) => {
+                  const type = c.type === "merge" ? "merge" : c.type === "review" ? "review" : c.type === "docs" ? "docs" : "opened";
+                  return (
+                    <li key={c.id} className="brutal-sm flex items-center gap-3 border-ink bg-canvas px-4 py-3">
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center border-2 border-ink text-base ${TYPE_STYLES[type] || "bg-white"}`}>
+                        {type === "merge" ? "✅" : type === "review" ? "🔎" : type === "docs" ? "📝" : "🆕"}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-extrabold uppercase tracking-tight text-ink">{c.title || c.prTitle || "Contribution"}</p>
+                        <p className="font-mono text-xs text-ink/60">{c.repo || "repo"}</p>
+                      </div>
+                      <span className="shrink-0 font-mono text-xs text-ink/50">
+                        {c.at ? new Date(c.at).toLocaleDateString() : new Date(c.loggedAt).toLocaleDateString()}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </motion.section>
 
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="rounded-2xl border border-slate-200 bg-white p-6">
-            <h2 className="font-semibold text-slate-900">GitHub API token</h2>
-            <p className="mt-1 text-xs text-slate-500">
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="brutal bg-white p-6">
+            <h2 className="text-sm font-extrabold uppercase tracking-wide text-ink">GitHub API token</h2>
+            <p className="mt-1 text-xs font-medium text-ink/60">
               Optional: a fine-grained token (public-repo read) lifts GitHub's anonymous rate limit so the feed and syncs always return live data. Stored in this browser only.
             </p>
             <GitHubTokenField />
@@ -230,9 +283,9 @@ function GitHubTokenField() {
         value={token}
         onChange={(e) => setToken(e.target.value)}
         placeholder="ghp_… or github_pat_…"
-        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        className="input-brutal flex-1 px-3 py-2"
       />
-      <button onClick={handleSave} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+      <button onClick={handleSave} className="btn-brutal rounded-none bg-ink px-4 py-2 text-canvas hover:bg-ink">
         {saved ? "Saved ✓" : "Save"}
       </button>
     </div>

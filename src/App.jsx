@@ -7,6 +7,9 @@ import Navbar from "./components/Navbar";
 
 const Landing = lazy(() => import("./pages/Landing"));
 const Discovery = lazy(() => import("./pages/Discovery"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Saved = lazy(() => import("./pages/Saved"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Portfolio = lazy(() => import("./pages/Portfolio"));
@@ -64,6 +67,30 @@ export default function App() {
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/project/:owner/:name" element={<ProjectDetail />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <Protected>
+                      <Dashboard />
+                    </Protected>
+                  }
+                />
+                <Route
+                  path="/messages"
+                  element={
+                    <Protected>
+                      <Messages />
+                    </Protected>
+                  }
+                />
+                <Route
+                  path="/saved"
+                  element={
+                    <Protected>
+                      <Saved />
+                    </Protected>
+                  }
+                />
                 <Route
                   path="/discovery"
                   element={

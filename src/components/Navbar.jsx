@@ -2,13 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
+import SearchBox from "./SearchBox";
 
-const ADVANCED_LINKS = [
-  { to: "/bounties", emoji: "💰", label: "Bounty board" },
-  { to: "/teams", emoji: "👥", label: "Teams" },
-  { to: "/mentorship", emoji: "🧭", label: "Mentorship" },
-  { to: "/maintainer", emoji: "🏗️", label: "Maintainer" },
-  { to: "/portfolio", emoji: "🔗", label: "Portfolio" },
+const EXPLORE_LINKS = [
+  { to: "/bounties", label: "Bounty board", accent: "bg-canary-soft" },
+  { to: "/teams", label: "Teams", accent: "bg-mint" },
+  { to: "/mentorship", label: "Mentorship", accent: "bg-lava" },
+  { to: "/maintainer", label: "Maintainer", accent: "bg-coral" },
+  { to: "/portfolio", label: "Portfolio", accent: "bg-skyish" },
 ];
 
 export default function Navbar() {
@@ -26,8 +27,8 @@ export default function Navbar() {
   }, []);
 
   const linkClass = ({ isActive }) =>
-    `rounded-full px-4 py-1.5 text-sm font-medium transition ${
-      isActive ? "bg-brand-100 text-brand-600" : "text-slate-600 hover:text-slate-900"
+    `btn-brutal rounded-none px-3 py-1.5 ${
+      isActive ? "bg-ink text-canvas" : "bg-canvas text-ink hover:bg-canary-soft"
     }`;
 
   async function handleLogout() {
@@ -36,46 +37,53 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b-2 border-ink bg-canvas">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="flex items-center gap-2 font-bold text-slate-900">
-          <motion.span
-            whileHover={{ rotate: 8 }}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 text-sm"
-          >
+        <Link to="/" className="flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center border-2 border-ink bg-canary text-sm shadow-[3px_3px_0_#171717] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none">
             🧲
-          </motion.span>
-          DevCollab
+          </span>
+          <span className="text-base font-extrabold uppercase tracking-tight text-ink">
+            Dev<span className="bg-black px-0.5 text-canary">Collab</span>
+          </span>
         </Link>
 
         <div className="flex items-center gap-2">
+          <SearchBox />
           {user ? (
             <>
               <NavLink to="/discovery" className={linkClass}>
                 Discover
               </NavLink>
+              <NavLink to="/saved" className={linkClass}>
+                ⭐ Saved
+              </NavLink>
+              <NavLink to="/messages" className={linkClass}>
+                💬 Chat
+              </NavLink>
 
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setOpen((o) => !o)}
-                  className="flex items-center gap-1 rounded-full px-4 py-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900"
+                  className="btn-brutal rounded-none bg-ink px-3 py-1.5 text-canvas"
                 >
-                  Explore <span className={`text-xs ${open ? "rotate-180" : ""} transition`}>▾</span>
+                  More <span className={`inline-block transition ${open ? "rotate-180" : ""}`}>▾</span>
                 </button>
                 {open && (
                   <motion.div
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                    className="absolute right-0 mt-2 w-56 border-2 border-ink bg-canvas shadow-[4px_4px_0_#171717]"
                   >
-                    {ADVANCED_LINKS.map((l) => (
+                    {EXPLORE_LINKS.map((l) => (
                       <Link
                         key={l.to}
                         to={l.to}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                        className="flex items-center justify-between border-b-2 border-ink/10 px-4 py-2.5 text-sm font-semibold uppercase tracking-tight text-ink transition hover:bg-ink hover:text-canvas"
                       >
-                        <span className="text-base">{l.emoji}</span> {l.label}
+                        {l.label}
+                        <span className={`h-3 w-3 border-2 border-ink ${l.accent}`} />
                       </Link>
                     ))}
                   </motion.div>
@@ -83,32 +91,34 @@ export default function Navbar() {
               </div>
 
               {!profile?.onboardingComplete && (
-                <NavLink to="/onboarding" className="rounded-full bg-amber-100 px-4 py-1.5 text-sm font-medium text-amber-700">
+                <NavLink to="/onboarding" className="btn-brutal rounded-none bg-coral px-3 py-1.5 text-ink hover:bg-coral">
                   Finish setup
                 </NavLink>
               )}
 
-              <NavLink to="/profile" className="flex items-center gap-2" title={profile?.displayName}>
+              <NavLink to="/profile" className="ml-1" title={profile?.displayName}>
                 {profile?.photoURL || user?.photoURL ? (
-                  <img src={profile?.photoURL || user?.photoURL} alt="avatar" className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
+                  <img
+                    src={profile?.photoURL || user?.photoURL}
+                    alt="avatar"
+                    className="h-9 w-9 border-2 border-ink object-cover shadow-[3px_3px_0_#171717] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
-                  <div className="grid h-8 w-8 place-items-center rounded-full bg-brand-500 text-sm font-bold text-white">
+                  <div className="grid h-9 w-9 place-items-center border-2 border-ink bg-lava text-sm font-extrabold text-ink shadow-[3px_3px_0_#171717] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none">
                     {(profile?.displayName || user?.email || "?").slice(0, 1).toUpperCase()}
                   </div>
                 )}
               </NavLink>
               <button
                 onClick={handleLogout}
-                className="hidden rounded-full px-3 py-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 sm:block"
+                className="btn-brutal hidden rounded-none bg-skyish px-3 py-1.5 text-ink hover:bg-skyish sm:block"
               >
                 Log out
               </button>
             </>
           ) : (
-            <Link
-              to="/login"
-              className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-            >
+            <Link to="/login" className="btn-brutal rounded-none bg-ink px-5 py-2 text-canvas hover:bg-ink">
               Sign in
             </Link>
           )}
