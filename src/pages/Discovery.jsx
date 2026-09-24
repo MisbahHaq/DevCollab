@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { fetchProjectPool, searchGitHubProjects } from "../firebase/githubService";
 import { mockProjects } from "../data/mockProjects";
@@ -250,7 +249,7 @@ export default function Discovery() {
           ))}
         </div>
       ) : projects.length > 0 ? (
-        <motion.div layout className="mt-6 grid gap-5 lg:grid-cols-2">
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
           {projects.map((p) => (
             <ProjectCard
               key={p.id}
@@ -260,7 +259,7 @@ export default function Discovery() {
               onAction={handleAction}
             />
           ))}
-        </motion.div>
+        </div>
       ) : (
         <div className="brutal mt-10 bg-white p-10 text-center text-ink">
           <p className="text-4xl">{tab === "liked" ? "💜" : tab === "saved" ? "⭐" : filters.query ? "🔎" : "🔍"}</p>

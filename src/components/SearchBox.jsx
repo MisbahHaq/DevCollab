@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { fetchProjectPool, searchGitHubProjects } from "../firebase/githubService";
 import { fetchAllMaintainedProjects } from "../firebase/db";
 import { mockProjects } from "../data/mockProjects";
@@ -116,7 +117,12 @@ export default function SearchBox({ placeholder = "Search projects…" }) {
       </div>
 
       {open && query.trim() && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 border-2 border-ink bg-canvas shadow-[4px_4px_0_#171717]">
+        <motion.div
+          initial={{ opacity: 0, y: -6, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
+          className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 border-2 border-ink bg-canvas shadow-[4px_4px_0_#171717]"
+        >
           {ghLoading ? (
             <div className="flex items-center gap-2 px-4 py-4 font-mono text-xs text-ink/60">
               <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-ink border-t-transparent" />
@@ -179,7 +185,7 @@ export default function SearchBox({ placeholder = "Search projects…" }) {
           >
             Browse all results →
           </button>
-        </div>
+      </motion.div>
       )}
     </div>
   );

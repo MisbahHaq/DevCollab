@@ -17,20 +17,15 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
   const state = actions[project.id];
 
   return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="brutal bg-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-    >
+    <article className="brutal overflow-hidden bg-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none">
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <Link to={`/project/${project.owner}/${project.name}`} className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <Link to={`/project/${project.owner}/${project.name}`} className="flex min-w-0 items-center gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center border-2 border-ink bg-ink text-sm font-extrabold text-canary shadow-[2px_2px_0_#171717]">
                 {project.owner?.slice(0, 1).toUpperCase()}
               </span>
-              <div>
+              <div className="min-w-0">
                 <h3 className="truncate font-extrabold uppercase tracking-tight text-ink hover:underline">
                   {project.owner}/{project.name}
                 </h3>
@@ -50,7 +45,7 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
           </div>
         </div>
 
-        <p className="mt-3 line-clamp-2 text-sm font-medium text-ink/80">{project.description}</p>
+        <p className="mt-3 line-clamp-2 break-words text-sm font-medium text-ink/80">{project.description}</p>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {(project.languages || []).map((lang, i) => (
@@ -151,7 +146,7 @@ export default function ProjectCard({ project, match, actions = {}, onAction }) 
           )}
         </div>
       </div>
-    </motion.article>
+    </article>
   );
 }
 
