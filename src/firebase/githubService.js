@@ -189,6 +189,36 @@ export async function searchProjects({ language, size, perPage = 40 } = {}) {
   return data.items.map(toProjectModel);
 }
 
+// Live free-text project search against the GitHub Search API. Powers the
+// navbar + discovery search boxes. Tokens are quoted so user input can't
+// inject search qualifiers. Falls back to good-first-issue repos when no
+// query is given.
+export async function searchGitHubProjects(query, { perPage = 30, language, size } = {}) {
+  const tokens = query ? query.trim().split(/\s+/).filter(Boolean).map((t) => `"${t}"`) : [];
+  const parts = [
+    tokens.length ? tokens.join(" ") : "topic:good-first-issue",
+    "fork:false",
+    "archived:false",
+    "pushed:>2026-06-01",
+  ];
+  if (language) parts.push(`language:${language}`);
+  if (size === "small") parts.push("stars:<200");
+  else if (size === "medium") parts.push("stars:200..2000");
+  else if (size === "large") parts.push("stars:>2000");
+
+  const data = await gh(
+    `/search/repositories?q=${encodeURIComponent(parts.join(" "))}&sort=stars&order=desc&per_page=${perPage}`
+  );
+  return data.items.map(toProjectModel);
+}
+
+// Fetches a single repo by owner/name and maps it to the project model. Used
+// by ProjectDetail so live search results and arbitrary slugs always resolve.
+export async function fetchRepository(owner, name) {
+  const repo = await gh(`/repos/${owner}/${name}`);
+  return toProjectModel(repo);
+}
+
 const POOL_KEY = "devcollab_project_pool";
 
 let poolPromise = null;

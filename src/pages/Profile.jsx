@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { fetchRecentContributions, syncContributions } from "../firebase/db";
 import { fetchUserEvents, setGitHubToken, getGitHubToken } from "../firebase/githubService";
+import { BASE_STATS } from "../lib/stats";
 
 const MONTHLY_GOAL = 5;
 
@@ -53,7 +54,7 @@ export default function Profile() {
     }
   }
 
-  const stats = profile?.stats || { totalMerged: 0, totalOpened: 0, reviews: 0, docsMerged: 0, streak: 0 };
+  const stats = profile?.stats || BASE_STATS;
   const progress = Math.min((contributions.length / MONTHLY_GOAL) * 100, 100);
 
   return (

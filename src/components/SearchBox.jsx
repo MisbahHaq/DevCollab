@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { fetchProjectPool } from "../firebase/githubService";
+import { fetchProjectPool, searchGitHubProjects } from "../firebase/githubService";
 import { fetchAllMaintainedProjects } from "../firebase/db";
 import { mockProjects } from "../data/mockProjects";
+import { projectMatchesQuery } from "../lib/search";
 
 export default function SearchBox({ placeholder = "Search projects…" }) {
   const [query, setQuery] = useState("");
   const [pool, setPool] = useState([]);
   const [open, setOpen] = useState(false);
+  const [ghResults, setGhResults] = useState([]);
+  const [ghLoading, setGhLoading] = useState(false);
+  const [ghFailed, setGhFailed] = useState(false);
   const wrapRef = useRef(null);
   const navigate = useNavigate();
 
@@ -44,29 +48,43 @@ export default function SearchBox({ placeholder = "Search projects…" }) {
     };
   }, []);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase().replaceAll("/", " ");
-    if (!q) return [];
-    return pool
-      .map((p) => ({
-        ...p,
-        _haystack: [
-          p.owner,
-          p.name,
-          p.fullName,
-          p.id,
-          p.description,
-          ...(p.languages || []),
-          ...(p.frameworks || []),
-          ...(p.topics || []),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase(),
-      }))
-      .filter((p) => p._haystack.includes(q))
-      .slice(0, 7);
+  // Debounced live GitHub search for anything the user types.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setGhResults([]);
+      setGhLoading(false);
+      setGhFailed(false);
+      return;
+    }
+    setGhLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await searchGitHubProjects(q, { perPage: 12 });
+        setGhResults(res);
+        setGhFailed(false);
+      } catch {
+        setGhResults([]);
+        setGhFailed(true);
+      } finally {
+        setGhLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const localResults = useMemo(() => {
+    if (!query.trim()) return [];
+    return pool.filter((p) => projectMatchesQuery(p, query)).slice(0, 6);
   }, [query, pool]);
+
+  // Live GitHub results first, then local matched projects, deduped by repo id.
+  const results = useMemo(() => {
+    const seen = new Set();
+    return [...ghResults, ...localResults]
+      .filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+      .slice(0, 8);
+  }, [ghResults, localResults]);
 
   function goSearch(e) {
     if (e.key === "Enter" && query.trim()) {
@@ -99,39 +117,56 @@ export default function SearchBox({ placeholder = "Search projects…" }) {
 
       {open && query.trim() && (
         <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 border-2 border-ink bg-canvas shadow-[4px_4px_0_#171717]">
-          {results.length === 0 ? (
+          {ghLoading ? (
+            <div className="flex items-center gap-2 px-4 py-4 font-mono text-xs text-ink/60">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-ink border-t-transparent" />
+              Searching GitHub…
+            </div>
+          ) : results.length === 0 ? (
             <div className="px-4 py-4">
               <p className="font-mono text-xs text-ink/60">No matches for "{query}".</p>
               <p className="mt-1 font-mono text-[11px] text-ink/40">
-                Try a repo name or language, e.g. "react", "python", or "next.js".
+                {ghFailed
+                  ? "GitHub search unavailable (rate limit?) — try again in a moment."
+                  : 'Try a repo name or language, e.g. "react", "python", or "next.js".'}
               </p>
             </div>
           ) : (
             <ul>
-              {results.map((p) => (
-                <li key={p.id} className="border-b-2 border-ink/10 last:border-b-0">
-                  <Link
-                    to={`/project/${p.owner}/${p.name}`}
-                    onClick={() => {
-                      setOpen(false);
-                      setQuery("");
-                    }}
-                    className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-ink hover:text-canvas"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center border-2 border-ink bg-canary text-[11px] font-extrabold text-ink">
-                      {p.owner?.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-extrabold uppercase tracking-tight text-ink">
-                        {p.owner}/{p.name}
+              {results.map((p) => {
+                const live = ghResults.some((g) => g.id === p.id);
+                return (
+                  <li key={p.id} className="border-b-2 border-ink/10 last:border-b-0">
+                    <Link
+                      to={`/project/${p.owner}/${p.name}`}
+                      onClick={() => {
+                        setOpen(false);
+                        setQuery("");
+                      }}
+                      className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-ink hover:text-canvas"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center border-2 border-ink bg-canary text-[11px] font-extrabold text-ink">
+                        {p.owner?.slice(0, 1).toUpperCase()}
                       </span>
-                      <span className="block truncate font-mono text-[11px] text-ink/60">
-                        ⭐ {formatCount(p.stars)} · {(p.languages || []).slice(0, 3).join(" · ") || "open source"}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-extrabold uppercase tracking-tight text-ink">
+                            {p.owner}/{p.name}
+                          </span>
+                          {live && (
+                            <span className="shrink-0 border border-ink bg-lava px-1 font-mono text-[9px] font-bold uppercase text-ink">
+                              live
+                            </span>
+                          )}
+                        </span>
+                        <span className="block truncate font-mono text-[11px] text-ink/60">
+                          ⭐ {formatCount(p.stars)} · {(p.languages || []).slice(0, 3).join(" · ") || "open source"}
+                        </span>
                       </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
           <button

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
-import { fetchProjectPool } from "../firebase/githubService";
+import { fetchProjectPool, searchGitHubProjects } from "../firebase/githubService";
 import { mockProjects } from "../data/mockProjects";
 import {
   fetchSavedProjectIds,
@@ -11,6 +11,7 @@ import {
   fetchAllMaintainedProjects,
 } from "../firebase/db";
 import { computeMatchScore } from "../lib/matchScore";
+import { projectMatchesQuery } from "../lib/search";
 import ProjectCard from "../components/ProjectCard";
 import Filters from "../components/Filters";
 
@@ -31,6 +32,8 @@ export default function Discovery() {
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
   const [error, setError] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +83,24 @@ export default function Discovery() {
     if (q != null) setFilters((f) => ({ ...f, query: q }));
   }, [searchParams]);
 
+  // Debounced live GitHub search while a keyword is active.
+  useEffect(() => {
+    const q = filters.query?.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      searchGitHubProjects(q, { perPage: 24, language: filters.language || undefined, size: filters.size || undefined })
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [filters.query, filters.language, filters.size]);
+
   const developer = useMemo(
     () => ({
       primaryLanguage: profile?.primaryLanguage,
@@ -93,12 +114,17 @@ export default function Discovery() {
   );
 
   const allProjects = useMemo(() => {
-    const source = pool.length ? pool : mockProjects;
+    const base = pool.length ? pool : mockProjects;
+    // Live GitHub search results take precedence; dedupe on repo id.
+    const seen = new Set();
+    const source = [...searchResults, ...base].filter(
+      (p) => (seen.has(p.id) ? false : (seen.add(p.id), true))
+    );
     return source.map((p) => ({
       ...p,
       match: computeMatchScore(developer, p, { history: { action: actions[p.id] } }),
     }));
-  }, [pool, developer, actions]);
+  }, [pool, developer, actions, searchResults]);
 
   const projects = useMemo(() => {
     let list = allProjects;
@@ -115,16 +141,15 @@ export default function Discovery() {
     if (filters.difficulty) list = list.filter((p) => p.difficulty === filters.difficulty);
     if (filters.size) list = list.filter((p) => p.size === filters.size);
     if (filters.query) {
-      const q = filters.query.toLowerCase().replaceAll("/", " ");
-      list = list.filter((p) =>
-        [p.owner, p.name, p.fullName, p.id, p.description, ...(p.languages || []), ...(p.frameworks || []), ...(p.topics || [])]
-          .filter(Boolean)
-          .some((field) => field.toLowerCase().includes(q))
-      );
+      list = list.filter((p) => {
+        // Live GitHub search results already matched the query — keep them as-is.
+        if (searchResults.some((s) => s.id === p.id)) return true;
+        return projectMatchesQuery(p, filters.query);
+      });
     }
 
     return [...list].sort(SORTERS[filters.sort] || SORTERS.match);
-  }, [allProjects, filters, tab, actions]);
+  }, [allProjects, filters, tab, actions, searchResults]);
 
   async function handleAction(project, action) {
     if (!user) return;
@@ -177,6 +202,7 @@ export default function Discovery() {
       {filters.query && (
         <p className="mt-4 inline-block border-2 border-ink bg-canary-soft px-4 py-2 font-mono text-xs font-bold text-ink">
           🔎 {projects.length} result{projects.length === 1 ? "" : "s"} for "{filters.query}"
+          {searching ? <span className="ml-2 text-ink/50">· searching GitHub…</span> : null}
         </p>
       )}
 

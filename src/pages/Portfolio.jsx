@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
+import { BASE_STATS } from "../lib/stats";
 
 export default function Portfolio() {
   const { user, profile } = useAuth();
@@ -8,7 +9,7 @@ export default function Portfolio() {
 
   const username = profile?.portfolioUsername || profile?.githubUsername || (user?.email || "you").split("@")[0];
   const publicUrl = `devcollab.com/@${username}`;
-  const stats = profile?.stats || { totalMerged: 0, totalOpened: 0, reviews: 0, docsMerged: 0, streak: 0 };
+  const stats = profile?.stats || BASE_STATS;
 
   async function copy(text, label) {
     try {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
-import { fetchProjectPool, fetchIssueList, fetchRepoOverview } from "../firebase/githubService";
+import { fetchProjectPool, fetchIssueList, fetchRepoOverview, fetchRepository } from "../firebase/githubService";
 import { computeMatchScore } from "../lib/matchScore";
 import {
   fetchSavedProjectIds,
@@ -32,29 +32,50 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchProjectPool().catch(() => []), fetchAllMaintainedProjects().catch(() => [])])
-      .then(([pool, posted]) => {
+
+    async function loadProject() {
+      try {
+        const [pool, posted] = await Promise.all([
+          fetchProjectPool().catch(() => []),
+          fetchAllMaintainedProjects().catch(() => []),
+        ]);
         if (!alive) return;
         const all = [...pool, ...posted.map((p) => ({ ...p, maintainerPosted: true }))];
         const found = all.find((p) => (p.fullName || p.id) === id);
-        if (found) setProject(found);
-      })
-      .finally(() => alive && setLoading(false));
+        if (found) {
+          setProject(found);
+          return;
+        }
+        // Live search results and arbitrary slugs aren't in the pool — fetch
+        // the repo straight from GitHub so the detail page always resolves.
+        try {
+          const repo = await fetchRepository(owner, name);
+          if (alive) setProject(repo);
+        } catch (err) {
+          console.error("[devcollab] repo lookup failed", owner, name, err);
+        }
+      } catch (err) {
+        console.error("[devcollab] failed to load project pool", err);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    loadProject();
 
     if (user) {
       fetchSavedProjectIds(user.uid)
         .then((m) => alive && setActions(m))
-        .catch(() => {});
+        .catch((err) => console.error("[devcollab] failed to load saved actions", err));
     }
 
     setIssues([]);
     setGuide(null);
     fetchIssueList(id)
       .then((list) => alive && setIssues(list.slice(0, 5)))
-      .catch(() => {});
+      .catch((err) => console.error("[devcollab] failed to load issues", err));
     fetchRepoOverview(owner, name)
       .then((overview) => alive && overview && setGuide(overview.contributingGuide))
-      .catch(() => {});
+      .catch((err) => console.error("[devcollab] failed to load contributing guide", err));
 
     return () => {
       alive = false;
@@ -81,14 +102,19 @@ export default function ProjectDetail() {
   async function handleAction(action) {
     if (!user || !project) return;
     setActions((a) => ({ ...a, [project.id]: action }));
-    if (action === "like" && project.maintainerUid) {
-      try {
-        await createProjectRequest(user.uid, project, match?.score || 0);
-      } catch {}
-    }
     try {
+      if (action === "like" && project.maintainerUid) {
+        await createProjectRequest(user.uid, project, match?.score || 0);
+      }
       await saveProjectAction(user.uid, project.id, action);
-    } catch {}
+    } catch (err) {
+      console.error("[devcollab] failed to save action", err);
+      setActions((a) => {
+        const next = { ...a };
+        delete next[project.id];
+        return next;
+      });
+    }
   }
 
   async function requestToContribute() {
@@ -96,7 +122,9 @@ export default function ProjectDetail() {
     try {
       await createProjectRequest(user.uid, project, match?.score || 0);
       setRequested(true);
-    } catch {}
+    } catch (err) {
+      console.error("[devcollab] failed to send contribution request", err);
+    }
   }
 
   if (loading) {

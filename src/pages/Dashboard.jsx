@@ -119,11 +119,14 @@ export default function Dashboard() {
           setLive(true);
         }
         setPool(all);
-      } catch {
+      } catch (err) {
+        console.error("[devcollab] failed to build activity feed", err);
       }
     })();
 
-    fetchSavedProjectIds(user.uid).then((m) => alive && setSaved(m)).catch(() => {});
+    fetchSavedProjectIds(user.uid)
+      .then((m) => alive && setSaved(m))
+      .catch((err) => console.error("[devcollab] failed to load saved projects", err));
 
     return () => {
       alive = false;
@@ -143,7 +146,7 @@ export default function Dashboard() {
   const quickLinks = [
     { to: "/discovery", label: "Discover", emoji: "🧲", accent: "bg-canary-soft" },
     { to: "/saved", label: "Bookmarks", emoji: "⭐", accent: "bg-mint" },
-    { to: "/messages", label: "Chat", emoji: "💬", accent: "bg-lava" },
+    { to: "/mentorship", label: "Mentorship", emoji: "🧭", accent: "bg-lava" },
     { to: "/bounties", label: "Bounties", emoji: "💰", accent: "bg-coral" },
   ];
 

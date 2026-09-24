@@ -58,9 +58,6 @@ export default function Navbar() {
               <NavLink to="/saved" className={linkClass}>
                 ⭐ Saved
               </NavLink>
-              <NavLink to="/messages" className={linkClass}>
-                💬 Chat
-              </NavLink>
 
               <div className="relative" ref={menuRef}>
                 <button

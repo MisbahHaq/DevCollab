@@ -40,14 +40,6 @@
       ]
     },
     {
-      "collectionGroup": "threads",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "participantUids", "order": "ASCENDING" },
-        { "fieldPath": "lastActivityAt", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "matches",
       "queryScope": "COLLECTION",
       "fields": [

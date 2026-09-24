@@ -8,7 +8,6 @@ import Navbar from "./components/Navbar";
 const Landing = lazy(() => import("./pages/Landing"));
 const Discovery = lazy(() => import("./pages/Discovery"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Messages = lazy(() => import("./pages/Messages"));
 const Saved = lazy(() => import("./pages/Saved"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -72,14 +71,6 @@ export default function App() {
                   element={
                     <Protected>
                       <Dashboard />
-                    </Protected>
-                  }
-                />
-                <Route
-                  path="/messages"
-                  element={
-                    <Protected>
-                      <Messages />
                     </Protected>
                   }
                 />
