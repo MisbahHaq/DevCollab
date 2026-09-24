@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
 
 // Create a .env file in this folder and copy the values from your
 // Firebase project (Project settings > Your apps > Web app).
@@ -38,9 +37,12 @@ const app = initializeApp(
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const analytics =
-  import.meta.env.PROD && rawConfig.measurementId && typeof window !== "undefined"
-    ? getAnalytics(app)
-    : null;
+
+// Analytics is only useful in production. Load it lazily as a side effect so
+// its SDK never inflates the initial vendor-firebase chunk, and skip loading
+// entirely when no measurementId is configured.
+if (import.meta.env.PROD && rawConfig.measurementId && typeof window !== "undefined") {
+  void import("firebase/analytics").then(({ getAnalytics }) => getAnalytics(app));
+}
 
 export default app;

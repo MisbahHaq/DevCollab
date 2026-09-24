@@ -1,9 +1,11 @@
 // GitHub REST API integration. Reads a token from localStorage when the
 // user pasted a Personal Access Token in settings, otherwise hits the
-// public API (rate-limited to 60 req/hr/IP). For production scale, proxy
-// these calls through a backend that exchanges the Firebase OAuth token.
+// public API (rate-limited to 60 req/hr/IP). For production scale, set
+// VITE_GITHUB_PROXY_URL to a server-side GitHub proxy (`functions/api`) so
+// the PAT never ships to the browser and rate limits are shared.
 
 const API = "https://api.github.com";
+const PROXY = import.meta.env.VITE_GITHUB_PROXY_URL;
 const TOKEN_KEY = "devcollab_github_token";
 
 export function setGitHubToken(token) {
@@ -17,11 +19,12 @@ export function getGitHubToken() {
 
 async function gh(path) {
   const token = getGitHubToken();
-  const res = await fetch(`${API}${path}`, {
+  const isProxy = Boolean(PROXY);
+  const res = await fetch(isProxy ? `${PROXY}?path=${encodeURIComponent(path)}` : `${API}${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(!isProxy && token ? { Authorization: `Bearer ${token}` } : {}),
     },
     signal: AbortSignal.timeout(15000),
   });

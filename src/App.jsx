@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "./context/AuthContext";
 import { fetchProjectPool } from "./firebase/githubService";
 import Navbar from "./components/Navbar";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const Landing = lazy(() => import("./pages/Landing"));
 const Discovery = lazy(() => import("./pages/Discovery"));
@@ -51,17 +52,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar />
-      <AnimatePresence mode="wait">
-        <motion.main
-          key={location.pathname}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.25 }}
-        >
-          {!loading && (
-            <Suspense fallback={<RouteLoader />}>
+      <ErrorBoundary key={location.pathname}>
+        <Navbar />
+        <AnimatePresence mode="wait">
+          <motion.main
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+          >
+            {!loading && (
+              <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
@@ -152,6 +154,7 @@ export default function App() {
           )}
         </motion.main>
       </AnimatePresence>
+      </ErrorBoundary>
     </div>
   );
 }

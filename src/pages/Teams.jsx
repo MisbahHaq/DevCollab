@@ -13,7 +13,7 @@ import {
 } from "../firebase/db";
 
 export default function Teams() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [teams, setTeams] = useState([]);
   const [openId, setOpenId] = useState(null);
   const [form, setForm] = useState({ name: "", projectId: "", description: "" });

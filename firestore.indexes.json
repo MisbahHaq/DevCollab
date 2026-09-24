@@ -17,13 +17,6 @@
       ]
     },
     {
-      "collectionGroup": "bounties",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "amount", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "messages",
       "queryScope": "COLLECTION",
       "fields": [

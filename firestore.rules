@@ -31,7 +31,14 @@ service cloud.firestore {
     // Matches are computed per user
     match /matches/{matchId} {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
-      allow write: if isOwner(resource.data.uid);
+      allow create: if signedIn() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.projectId is string &&
+        request.resource.data.projectId.size() < 200 &&
+        request.resource.data.score is number &&
+        request.resource.data.score >= 0 &&
+        request.resource.data.score <= 100;
+      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     // Contributions: read own, write own
@@ -58,24 +65,34 @@ service cloud.firestore {
          resource.data.maintainerUid == request.auth.uid);
     }
 
-    // Teams: members + owner can edit; everyone signed-in can view leaderboards
+    // Teams: members + owner can edit; everyone signed-in can view leaderboards.
+    // Creation is validated so the requester can't impersonate another owner.
     match /teams/{teamId} {
       allow read: if signedIn();
-      allow create: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.memberUids is list &&
+        request.resource.data.memberUids.size() <= 50 &&
+        request.resource.data.memberUids.hasAny([request.auth.uid]);
       allow update: if signedIn() &&
         (resource.data.ownerUid == request.auth.uid ||
          resource.data.memberUids.hasAny([request.auth.uid]));
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
-    // Bounties: open read; creators manage their own, any user can claim
+    // Bounties: open read; creators manage their own, any user can claim.
+    // Create requires the resource creator, amount must be a non-negative number.
     match /bounties/{bountyId} {
       allow read: if signedIn();
-      allow create: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.amount is number &&
+        request.resource.data.amount >= 0;
       allow update: if signedIn() &&
         (resource.data.createdBy == request.auth.uid ||
          resource.data.claimedBy == request.auth.uid ||
-         request.resource.data.claimedBy == request.auth.uid);
+         (request.resource.data.claimedBy == request.auth.uid &&
+          resource.data.claimedBy == null));
       allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
     }
 
@@ -90,11 +107,15 @@ service cloud.firestore {
          resource.data.mentorUid == request.auth.uid);
     }
 
-    // Threads: participants only
+    // Threads: participants only; the creator must be a participant and the
+    // participant list is size-capped to stop spam-built megathreads.
     match /threads/{threadId} {
       allow read: if signedIn() && resource.data.participantUids.hasAny([request.auth.uid]);
-      allow create: if signedIn();
-      allow update: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.participantUids is list &&
+        request.resource.data.participantUids.size() <= 20 &&
+        request.resource.data.participantUids.hasAny([request.auth.uid]);
+      allow update: if signedIn() && resource.data.participantUids.hasAny([request.auth.uid]);
     }
 
     // Messages: authors write their own; participants read via thread id.

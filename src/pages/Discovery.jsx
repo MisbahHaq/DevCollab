@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
@@ -9,6 +9,7 @@ import {
   saveProjectAction,
   createProjectRequest,
   fetchAllMaintainedProjects,
+  persistTopMatches,
 } from "../firebase/db";
 import { computeMatchScore } from "../lib/matchScore";
 import { projectMatchesQuery } from "../lib/search";
@@ -125,6 +126,17 @@ export default function Discovery() {
       match: computeMatchScore(developer, p, { history: { action: actions[p.id] } }),
     }));
   }, [pool, developer, actions, searchResults]);
+
+  // Persist the top matches to Firestore so the dashboard feed is real.
+  // Debounced + idempotent: projects already scored are skipped.
+  useEffect(() => {
+    if (!user || !profile?.onboardingComplete || !allProjects.length) return;
+    const id = setTimeout(() => {
+      persistTopMatches(user.uid, allProjects, { limit: 10 })
+        .catch((err) => console.error("[devcollab] failed to persist matches", err));
+    }, 800);
+    return () => clearTimeout(id);
+  }, [user, profile, allProjects]);
 
   const projects = useMemo(() => {
     let list = allProjects;

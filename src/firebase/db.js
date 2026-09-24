@@ -408,6 +408,35 @@ export async function fetchThreadMessages(threadId) {
 // Activity feed (recent matches, bounties, team openings)
 // ---------------------------------------------------------------------------
 
+// Writes the user's top-ranked matches computed in Discovery, so the
+// dashboard activity feed reflects real scored projects. Skips projects the
+// user already has a match for, keeping repeated visits idempotent.
+export async function persistTopMatches(uid, ranked, { limit = 10 } = {}) {
+  if (!ranked?.length) return 0;
+  const top = [...ranked].sort((a, b) => b.match.score - a.match.score).slice(0, limit);
+
+  const existingSnap = await getDocs(
+    query(collection(db, COLLECTIONS.MATCHES), where("uid", "==", uid))
+  );
+  const known = new Set(existingSnap.docs.map((d) => d.data().projectId));
+
+  const fresh = top.filter((p) => !known.has(p.id));
+  if (fresh.length === 0) return 0;
+
+  await Promise.all(
+    fresh.map(async (p) => {
+      await setDoc(doc(db, COLLECTIONS.MATCHES, `${uid}_${p.id}`), {
+        uid,
+        projectId: p.id,
+        score: p.match.score,
+        breakdown: p.match.breakdown,
+        computedAt: new Date().toISOString(),
+      });
+    })
+  );
+  return fresh.length;
+}
+
 export async function fetchRecentMatches(uid, count = 8) {
   try {
     const snap = await getDocs(

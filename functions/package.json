@@ -1,0 +1,17 @@
+{
+  "name": "devcollab-functions",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "scripts": {
+    "lint": "node --check index.js",
+    "deploy": "firebase deploy --only functions:api"
+  },
+  "dependencies": {
+    "firebase-functions": "^6.1.0"
+  }
+}

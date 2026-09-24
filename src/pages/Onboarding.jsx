@@ -93,7 +93,7 @@ export default function Onboarding() {
     setSaving(true);
     setError("");
     try {
-      const stats = profile?.stats || {};
+      const stats = { ...(profile?.stats || {}) };
       if (importResult) {
         stats.totalMerged = Math.max(stats.totalMerged || 0, Math.floor(importResult.publicRepos / 5));
         stats.streak = Math.max(stats.streak || 0, importResult.streak || 0);

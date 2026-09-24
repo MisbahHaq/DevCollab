@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- the provider + useAuth hook must live together */
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase/config";
