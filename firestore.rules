@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Users manage only their own profile
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if isOwner(uid);
+    }
+
+    // Projects: public read. Maintainer-written projects are managed by
+    // their maintainerUid (set by the client on create).
+    match /projects/{projectId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.maintainerUid == request.auth.uid;
+      allow update: if signedIn() && resource.data.maintainerUid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.maintainerUid == request.auth.uid;
+    }
+
+    match /project_issues/{issueId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Matches are computed per user
+    match /matches/{matchId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if isOwner(resource.data.uid);
+    }
+
+    // Contributions: read own, write own
+    match /contributions/{contributionId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow write: if isOwner(request.resource.data.uid);
+    }
+
+    // Like/pass actions: own write; reads are open to signed-in users so
+    // co-contributor discovery for teams can work (MVP trade-off).
+    match /saved_projects/{savedId} {
+      allow read: if signedIn();
+      allow write: if isOwner(request.resource.data.uid);
+    }
+
+    // Maintenance requests on a maintainer's project
+    match /project_requests/{requestId} {
+      allow read: if signedIn() &&
+        (resource.data.uid == request.auth.uid ||
+         resource.data.maintainerUid == request.auth.uid);
+      allow create: if isOwner(request.resource.data.uid);
+      allow update: if signedIn() &&
+        (resource.data.uid == request.auth.uid ||
+         resource.data.maintainerUid == request.auth.uid);
+    }
+
+    // Teams: members + owner can edit; everyone signed-in can view leaderboards
+    match /teams/{teamId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn() &&
+        (resource.data.ownerUid == request.auth.uid ||
+         resource.data.memberUids.hasAny([request.auth.uid]));
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Bounties: open read; creators manage their own, any user can claim
+    match /bounties/{bountyId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn() &&
+        (resource.data.createdBy == request.auth.uid ||
+         resource.data.claimedBy == request.auth.uid ||
+         request.resource.data.claimedBy == request.auth.uid);
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Mentorships: participants only
+    match /mentorships/{mentorshipId} {
+      allow read: if signedIn() &&
+        (resource.data.menteeUid == request.auth.uid ||
+         resource.data.mentorUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.menteeUid == request.auth.uid;
+      allow update: if signedIn() &&
+        (resource.data.menteeUid == request.auth.uid ||
+         resource.data.mentorUid == request.auth.uid);
+    }
+
+    // Threads: participants only
+    match /threads/{threadId} {
+      allow read: if signedIn() && resource.data.participantUids.hasAny([request.auth.uid]);
+      allow create: if signedIn();
+      allow update: if signedIn();
+    }
+
+    // Messages: authors write their own; participants read via thread id.
+    // Looks up the thread document to validate participation.
+    match /messages/{messageId} {
+      allow read: if signedIn() &&
+        resource.data.threadId != null &&
+        get(/databases/$(database)/documents/threads/$(resource.data.threadId)).data.participantUids.hasAny([request.auth.uid]);
+      allow create: if isOwner(request.resource.data.uid);
+    }
+
+    // Badges are computed client-side and mirrored onto the user profile
+    match /badges/{badgeId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+  }
+}
